@@ -1,0 +1,79 @@
+@if (zone(); as z) {
+  <input
+    #nm
+    type="text"
+    aria-label="Nom de la forme"
+    [maxLength]="limits.nameLength"
+    [value]="z.name"
+    (input)="setName(z, nm.value)"
+    (change)="commit()"
+  />
+  <label class="chk">
+    <input #hl type="checkbox" [checked]="z.hole" (change)="setHole(z, hl.checked)" />
+    Trou (découpe traversante)
+  </label>
+
+  @if (z.hole) {
+    <div class="lab"><span>Profil du bord</span></div>
+    <app-segmented
+      label="Profil du bord"
+      [options]="profiles"
+      [value]="z.edge?.type ?? 'droit'"
+      (picked)="setProfile(z, $event)"
+    />
+    @if (z.edge && z.edge.type !== 'droit') {
+      <div class="g2">
+        <app-number-field
+          label="Taille du profil"
+          [value]="z.edge.size"
+          [min]="limits.profileSize[0]"
+          [max]="limits.profileSize[1]"
+          [step]="0.5"
+          (live)="setProfileSize(z, $event)"
+          (committed)="commit()"
+        />
+      </div>
+    }
+  } @else {
+    <div class="lab"><span>Couleur</span><output>{{ palette[z.color].label }}</output></div>
+    <app-swatches [value]="z.color" (picked)="setColor(z, $event)" />
+    <app-slider-field
+      label="Sens du fil"
+      [value]="z.angle"
+      [display]="round(z.angle) + '°'"
+      [min]="0"
+      [max]="179"
+      [step]="1"
+      (live)="setAngle(z, $event)"
+      (committed)="commit()"
+    />
+    <div class="row angles">
+      @for (a of quickAngles; track a) {
+        <button type="button" [class.on]="round(z.angle) === a" (click)="set(z, { angle: a })">{{ a }}°</button>
+      }
+    </div>
+  }
+
+  <div class="g2">
+    <app-number-field label="Centre X" [value]="round05(z.x)" [step]="0.5" (live)="live(z, { x: $event })" (committed)="commit()" />
+    <app-number-field label="Centre Y" [value]="round05(z.y)" [step]="0.5" (live)="live(z, { y: $event })" (committed)="commit()" />
+    <app-number-field label="Largeur" [value]="round05(z.w)" [min]="0.5" [step]="0.5" (live)="live(z, { w: $event > 0.5 ? $event : 0.5 })" (committed)="commit()" />
+    <app-number-field label="Hauteur" [value]="round05(z.h)" [min]="0.5" [step]="0.5" (live)="live(z, { h: $event > 0.5 ? $event : 0.5 })" (committed)="commit()" />
+    <app-number-field label="Rotation" unit="°" [value]="round(z.rot)" [step]="1" (live)="live(z, { rot: $event })" (committed)="commit()" />
+  </div>
+
+  <div class="row actions">
+    <button type="button" (click)="store.duplicateSelected()">Dupliquer</button>
+    <button type="button" (click)="store.moveSelected(1)">Monter</button>
+    <button type="button" (click)="store.moveSelected(-1)">Descendre</button>
+    <button type="button" class="warn" (click)="store.deleteSelected()">Supprimer</button>
+  </div>
+  @if (warning()) {
+    <p class="note" role="status">{{ warning() }}</p>
+  }
+} @else {
+  <p class="empty">
+    Clique une forme sur le panneau, ajoutes-en une avec la barre d'outils, ou génère un motif plus bas.
+  </p>
+  <p class="note">Exemple de départ : porte de buffet en soleil. « Tout effacer » repart d'un panneau vide.</p>
+}

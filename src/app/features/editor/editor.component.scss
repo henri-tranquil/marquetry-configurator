@@ -1,0 +1,76 @@
+:host {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  padding: 12px max(16px, 2vw);
+  border-bottom: 1px solid var(--line);
+}
+.num { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
+.preset { width: 11em; }
+
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  min-height: 0;
+}
+
+.stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--mat);
+  min-height: 0;
+  color: #fff;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 0;
+  button {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.28);
+    padding: 0 11px;
+    &:hover { background: rgba(255, 255, 255, 0.16); border-color: #fff; }
+  }
+  svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .sep { width: 1px; background: rgba(255, 255, 255, 0.25); margin: 4px; }
+}
+
+.fig {
+  position: relative;
+  min-height: 340px;
+  background-color: var(--mat);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-size: var(--g, 20px) var(--g, 20px);
+  background-position: var(--gx, 0) var(--gy, 0);
+}
+
+.msg3 { position: absolute; inset: auto 16px 16px; margin: 0; padding: 12px 14px; border-radius: 8px; background: rgba(0, 0, 0, 0.45); color: #fff; }
+
+.hint { font-size: 13px; color: rgba(255, 255, 255, 0.78); padding: 6px 14px 10px; margin: 0; }
+
+aside { overflow: auto; border-left: 1px solid var(--line); }
+section { padding: 16px; border-bottom: 1px solid var(--line); }
+
+@media (max-width: 900px) {
+  :host { height: auto; }
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .fig { height: 64svh; min-height: 380px; }
+  aside { border-left: 0; overflow: visible; }
+}
+@media (max-width: 600px) {
+  header { gap: 8px 12px; }
+  .tools button span { display: none; }
+  .tools button { padding: 0 12px; }
+}
