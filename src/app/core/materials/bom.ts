@@ -1,5 +1,5 @@
 import { arcLength, perimeter, prepare, profileRadius, topAt } from '../geometry/geometry';
-import { PALETTE, Project, StrawColor, WOOD_HEX } from '../model/project';
+import { strawInfo, Project, StrawColor, WOOD_HEX } from '../model/project';
 
 /** Chute ajoutée aux longueurs de bande. */
 export const WASTE = 1.15;
@@ -85,8 +85,8 @@ export function estimateMaterials(p: Project): Bom {
       const wood = key === 'bois';
       return {
         key,
-        label: wood ? 'Médium nu' : PALETTE[key].label,
-        hex: wood ? WOOD_HEX : PALETTE[key].hex,
+        label: wood ? 'Médium nu' : strawInfo(key).label,
+        hex: wood ? WOOD_HEX : strawInfo(key).hex,
         area,
         share: total ? count / total : 0,
         meters: wood ? 0 : stripMeters(area, p.sw),

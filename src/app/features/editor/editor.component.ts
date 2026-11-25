@@ -22,6 +22,8 @@ import { FirstTipComponent } from './first-tip.component';
 import { GuideCardComponent } from './guide-card.component';
 import { HelpDialogComponent } from './help-dialog.component';
 import { StageCanvasComponent } from './stage-canvas.component';
+import { SuggestionsBarComponent } from './suggestions-bar.component';
+import { SuggestionsStore } from '../../state/suggestions.store';
 import { Viewer3dComponent } from './viewer-3d.component';
 
 interface Tool {
@@ -50,6 +52,7 @@ interface Tool {
     HelpDialogComponent,
     SvgImportDialogComponent,
     ProjectsDialogComponent,
+    SuggestionsBarComponent,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -62,6 +65,7 @@ export class EditorComponent {
   protected readonly fmt = fmt;
   protected readonly is3d = computed(() => this.p().view === '3d');
   protected readonly ui = inject(UiStore);
+  protected readonly sg = inject(SuggestionsStore);
   protected readonly zoomLabel = computed(() => `${Math.round(this.ui.zoomLevel() * 100)} %`);
   private readonly projects = inject(ProjectsStore);
   protected readonly currentName = computed(() => this.projects.list().find((m) => m.id === this.projects.currentId())?.name ?? 'Projet');
@@ -191,6 +195,7 @@ export class EditorComponent {
     }
     if (e.key === 'Escape') {
       if (this.ui.menu()) this.ui.menu.set(null);
+      else if (this.sg.previewId()) this.sg.cancel();
       else this.store.select(null);
       return;
     }

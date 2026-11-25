@@ -1,6 +1,6 @@
 import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { prepare } from '../core/geometry/geometry';
-import { looksLikeProject, normalizeProject } from '../core/model/normalize';
+import { blankProject, looksLikeProject, normalizeProject } from '../core/model/normalize';
 import { Project } from '../core/model/project';
 import { drawStrawPanel } from '../render/straw-2d.renderer';
 import { ProjectStore } from './project.store';
@@ -135,7 +135,7 @@ export class ProjectsStore {
   create(name: string, from?: Project): void {
     this.save();
     const id = this.newId();
-    const p = from ?? normalizeProject({ panel: this.store.committed().panel, zones: [] });
+    const p = from ?? blankProject(this.store.committed().panel);
     this.list.update((l) => [...l, { id, name: name.slice(0, MAX_NAME) || 'Nouveau projet', updated: Date.now(), thumb: '', w: p.panel.w, h: p.panel.h }]);
     this.currentId.set(id);
     write(CURRENT_KEY, JSON.stringify(id));

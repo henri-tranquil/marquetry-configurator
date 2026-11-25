@@ -1,7 +1,7 @@
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { isNarrow } from '../../core/geometry/geometry';
-import { FILL_LABELS, PALETTE, Zone } from '../../core/model/project';
+import { FILL_LABELS, Zone, strawInfo } from '../../core/model/project';
 import { ProjectStore } from '../../state/project.store';
 
 @Component({
@@ -16,7 +16,7 @@ import { ProjectStore } from '../../state/project.store';
             <span class="grip" cdkDragHandle aria-hidden="true" title="Glisser pour changer l'ordre de pose">⋮⋮</span>
             <button type="button" [class.on]="r.zone.id === store.selectedId()" [attr.aria-pressed]="r.zone.id === store.selectedId()" (click)="store.select(r.zone.id)">
               <span class="n">{{ r.index + 1 }}</span>
-              <i class="dot" [class.hole]="r.zone.hole" [style.--c]="palette[r.zone.color].hex"></i>
+              <i class="dot" [class.hole]="r.zone.hole" [style.--c]="info(r.zone.color).hex"></i>
               <span class="nm">{{ r.zone.name }}</span>
               @if (r.narrow) {
                 <span class="tag">étroite</span>
@@ -48,7 +48,7 @@ import { ProjectStore } from '../../state/project.store';
 })
 export class LayersPanelComponent {
   protected readonly store = inject(ProjectStore);
-  protected readonly palette = PALETTE;
+  protected readonly info = strawInfo;
 
   /** Ordre inversé : le dernier posé (au-dessus) en haut de la liste. */
   protected readonly rows = computed(() => {

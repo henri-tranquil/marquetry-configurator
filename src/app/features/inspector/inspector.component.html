@@ -1,6 +1,6 @@
 @if (zone(); as z) {
   <div class="head">
-    <span class="kind" [class.hole]="z.hole" [style.--c]="palette[z.color].hex"></span>
+    <span class="kind" [class.hole]="z.hole" [style.--c]="info(z.color).hex"></span>
     <span class="title">{{ kindLabel() }}</span>
     <span class="pos" title="Numéro sur le plan de pose">n° {{ layerNumber() }} du plan</span>
   </div>
@@ -41,8 +41,8 @@
       </div>
     }
   } @else {
-    <div class="lab"><span>Couleur</span><output>{{ palette[z.color].label }}</output></div>
-    <app-swatches [value]="z.color" (picked)="setColor(z, $event)" />
+    <div class="lab"><span>Couleur</span><output>{{ info(z.color).label }}</output></div>
+    <app-swatches [value]="z.color" [recent]="store.customColors()" (picked)="setColor(z, $event)" />
     <div class="lab"><span>Disposition des brins</span></div>
     <app-segmented label="Disposition des brins" [options]="fills" [value]="fillType()" (picked)="setFill(z, $event)" />
 
@@ -132,7 +132,10 @@
   }
 } @else {
   <p class="empty">
-    Clique une forme sur le panneau, ajoutes-en une avec la barre d'outils, ou génère un motif plus bas.
+    @if (store.project().zones.length) {
+      Clique une forme sur le panneau pour la régler.
+    } @else {
+      Panneau vide : ajoute une forme avec la barre d'outils, ou essaie une suggestion sous le panneau.
+    }
   </p>
-  <p class="note">Exemple de départ : porte de buffet en soleil. « Tout effacer » repart d'un panneau vide.</p>
 }

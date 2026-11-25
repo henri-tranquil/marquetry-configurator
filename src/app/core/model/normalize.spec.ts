@@ -34,7 +34,7 @@ describe('normalizeProject', () => {
         { type: 'ellipse', hole: true, edge: { type: 'arrondi', size: 999 } },
       ],
     });
-    expect(p.bg.mode).toBe('paille');
+    expect(p.bg.mode).toBe('bois');
     expect(p.bg.color).toBe('naturel');
     expect(p.edge.type).toBe('droit');
     expect(p.zones).toHaveLength(2);
@@ -86,5 +86,21 @@ describe('exampleProject', () => {
     const hole = p.zones.find((z) => z.hole);
     expect(hole?.edge).toEqual({ type: 'arrondi', size: 6 });
     expect(new Set(p.zones.map((z) => z.id)).size).toBe(p.zones.length);
+  });
+});
+
+describe('teintes sur mesure', () => {
+  it('garde une couleur #rrggbb valide et rejette le reste', () => {
+    const p = normalizeProject({
+      panel: { w: 100, h: 100 },
+      bg: { mode: 'paille', color: '#A1B2C3' },
+      zones: [
+        { type: 'rect', color: '#123456' },
+        { type: 'rect', color: '#12345' },
+        { type: 'rect', color: 'url(javascript:1)' },
+      ],
+    });
+    expect(p.bg.color).toBe('#a1b2c3');
+    expect(p.zones.map((z) => z.color)).toEqual(['#123456', 'naturel', 'naturel']);
   });
 });

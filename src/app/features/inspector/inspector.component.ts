@@ -1,22 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { fillCenter, toZoneLocal } from '../../core/geometry/fill';
 import { clamp, isNarrow, normAngle, profileRadius, round05 } from '../../core/geometry/geometry';
-import {
-  defaultFill,
-  FILL_LABELS,
-  FILL_TYPES,
-  FillType,
-  LIMITS,
-  PALETTE,
-  Point,
-  PROFILE_LABELS,
-  PROFILE_TYPES,
-  ProfileType,
-  SHAPE_NAMES,
-  StrawColor,
-  StrawFill,
-  Zone,
-} from '../../core/model/project';
+import { defaultFill, FILL_LABELS, FILL_TYPES, FillType, LIMITS, Point, PROFILE_LABELS, PROFILE_TYPES, ProfileType, SHAPE_NAMES, StrawColor, StrawFill, Zone, strawInfo } from '../../core/model/project';
 import { fmt } from '../../shared/format';
 import { NumberFieldComponent } from '../../shared/ui/number-field.component';
 import { SegmentedComponent, SegOption } from '../../shared/ui/segmented.component';
@@ -45,7 +30,7 @@ import { ProjectStore } from '../../state/project.store';
 export class InspectorComponent {
   protected readonly store = inject(ProjectStore);
   protected readonly zone = this.store.selected;
-  protected readonly palette = PALETTE;
+  protected readonly info = strawInfo;
   protected readonly limits = LIMITS;
   protected readonly quickAngles = [0, 45, 90, 135];
   protected readonly profiles: SegOption<ProfileType>[] = PROFILE_TYPES.map((v) => ({ value: v, label: PROFILE_LABELS[v] }));

@@ -9,7 +9,7 @@ import {
   RAD,
 } from '../core/geometry/geometry';
 import { fillCenter, hasFillCenter, zoneFillPieces } from '../core/geometry/fill';
-import { PALETTE, Point, Project, Zone } from '../core/model/project';
+import { strawInfo, Point, Project, Zone } from '../core/model/project';
 import { Ctx2D, toScreen, tracePath, ViewTransform } from './straw-2d.renderer';
 
 function hatch(ctx: Ctx2D, pp: readonly Point[], angle: number, hex: string, stepPx: number, panelPx: [number, number, number, number]): void {
@@ -50,7 +50,7 @@ function hatchZone(
   stepPx: number,
   panelPx: [number, number, number, number],
 ): void {
-  const hex = PALETTE[z.color].hex;
+  const hex = strawInfo(z.color).hex;
   const pieces = zoneFillPieces(z, poly, p.panel, p.sw, 0);
   ctx.save();
   tracePath(ctx, poly.map((q) => toScreen(v, q)));
@@ -114,7 +114,7 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
   ctx.save();
   tracePath(ctx, PP);
   ctx.clip();
-  if (p.bg.mode === 'paille') hatch(ctx, PP, p.bg.angle, PALETTE[p.bg.color].hex, step, panelPx);
+  if (p.bg.mode === 'paille') hatch(ctx, PP, p.bg.angle, strawInfo(p.bg.color).hex, step, panelPx);
   else {
     ctx.fillStyle = '#efe6d6';
     ctx.fillRect(v.ox, v.oy, pw, ph);

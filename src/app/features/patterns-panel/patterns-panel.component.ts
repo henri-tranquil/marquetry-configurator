@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { clamp } from '../../core/geometry/geometry';
-import { PALETTE, Project, STRAW_COLORS, StrawColor } from '../../core/model/project';
+import { Project, STRAW_COLORS, StrawColor, strawInfo } from '../../core/model/project';
 import { generatePattern, insertPattern, PatternOptions, PATTERNS, PatternType } from '../../core/patterns/patterns';
 import { ProjectThumbComponent } from '../../shared/ui/project-thumb.component';
 import { ProjectStore } from '../../state/project.store';
@@ -40,7 +40,7 @@ import { ProjectStore } from '../../state/project.store';
         Couleur A
         <select #a (change)="colorA.set(asColor(a.value))">
           @for (c of colors; track c) {
-            <option [value]="c" [selected]="colorA() === c">{{ palette[c].label }}</option>
+            <option [value]="c" [selected]="colorA() === c">{{ info(c).label }}</option>
           }
         </select>
       </label>
@@ -48,7 +48,7 @@ import { ProjectStore } from '../../state/project.store';
         Couleur B
         <select #b (change)="colorB.set(asColor(b.value))">
           @for (c of colors; track c) {
-            <option [value]="c" [selected]="colorB() === c">{{ palette[c].label }}</option>
+            <option [value]="c" [selected]="colorB() === c">{{ info(c).label }}</option>
           }
         </select>
       </label>
@@ -87,7 +87,7 @@ export class PatternsPanelComponent {
   protected readonly patterns = PATTERNS;
   protected readonly types = Object.keys(PATTERNS) as PatternType[];
   protected readonly colors = STRAW_COLORS;
-  protected readonly palette = PALETTE;
+  protected readonly info = strawInfo;
 
   protected readonly type = signal<PatternType>('soleil');
   protected readonly meta = computed(() => PATTERNS[this.type()]);

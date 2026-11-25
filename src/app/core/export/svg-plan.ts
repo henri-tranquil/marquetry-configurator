@@ -6,7 +6,7 @@ import {
   profileBands,
 } from '../geometry/geometry';
 import { fillCenter, hasFillCenter, zoneFillPieces } from '../geometry/fill';
-import { PALETTE, Point, Project } from '../model/project';
+import { strawInfo, Point, Project } from '../model/project';
 
 const f2 = (v: number) => v.toFixed(2);
 const f1 = (v: number) => v.toFixed(1);
@@ -28,14 +28,14 @@ export function svgPlan(p: Project): string {
     `<rect width="${sw}" height="${sw}" fill="#fff"/><rect width="${sw}" height="${f2(sw * 0.18)}" fill="${c}"/></pattern>`;
 
   if (p.bg.mode === 'paille') {
-    defs += pat('bg', p.bg.angle, PALETTE[p.bg.color].hex);
+    defs += pat('bg', p.bg.angle, strawInfo(p.bg.color).hex);
     body += `<rect width="${w}" height="${h}" fill="url(#bg)"/>`;
   } else body += `<rect width="${w}" height="${h}" fill="#efe6d6"/>`;
 
   let marks = '';
   D.zones.forEach((o, i) => {
     const z = o.zone;
-    const hex = PALETTE[z.color].hex;
+    const hex = strawInfo(z.color).hex;
     const pieces = zoneFillPieces(z, o.poly, p.panel, p.sw, 0);
     if (!z.fill || z.fill.type === 'parallele') {
       defs += pat(`p${i}`, z.angle, hex);

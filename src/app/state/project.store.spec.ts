@@ -11,8 +11,10 @@ describe('ProjectStore', () => {
     store = TestBed.inject(ProjectStore);
   });
 
-  it("démarre sur le projet exemple quand rien n'est stocké", () => {
+  it("démarre sur un panneau vide en médium quand rien n'est stocké", () => {
     expect(store.project().panel).toEqual({ w: 400, h: 700 });
+    expect(store.project().zones).toEqual([]);
+    expect(store.project().bg.mode).toBe('bois');
     expect(store.canUndo()).toBe(false);
   });
 
@@ -74,5 +76,12 @@ describe('ProjectStore', () => {
     store.addShape('ellipse');
     store.undo();
     expect(store.selectedId()).toBeNull();
+  });
+
+  it('« Tout effacer » repart d\'un panneau en médium nu', () => {
+    store.apply((p) => ({ ...p, bg: { ...p.bg, mode: 'paille' } }));
+    store.clearZones();
+    expect(store.project().bg.mode).toBe('bois');
+    expect(store.project().zones).toEqual([]);
   });
 });

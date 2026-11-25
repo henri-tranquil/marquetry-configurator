@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { fillCenter } from '../../core/geometry/fill';
-import { PALETTE } from '../../core/model/project';
+import { strawInfo } from '../../core/model/project';
 import { fmt, fmtArea } from '../../shared/format';
 import { ProjectStore } from '../../state/project.store';
 import { UiStore } from '../../state/ui.store';
@@ -18,7 +18,7 @@ import { UiStore } from '../../state/ui.store';
         </div>
         <h2 id="guide-title"><span class="num">{{ s.number }}</span> {{ s.zone.name }}</h2>
         <dl>
-          <div><dt>Paille</dt><dd><i class="dot" [style.--c]="palette[s.zone.color].hex"></i>{{ palette[s.zone.color].label }}</dd></div>
+          <div><dt>Paille</dt><dd><i class="dot" [style.--c]="info(s.zone.color).hex"></i>{{ info(s.zone.color).label }}</dd></div>
           <div><dt>Brins</dt><dd>{{ how() }}</dd></div>
           <div><dt>Surface visible</dt><dd>{{ fmtArea(s.usage.area) }}</dd></div>
           <div><dt>Bande</dt><dd>≈ {{ fmt(s.usage.meters, 1) }} m de {{ fmt(store.committed().sw, 1) }} mm</dd></div>
@@ -52,7 +52,7 @@ import { UiStore } from '../../state/ui.store';
 export class GuideCardComponent {
   protected readonly store = inject(ProjectStore);
   protected readonly ui = inject(UiStore);
-  protected readonly palette = PALETTE;
+  protected readonly info = strawInfo;
   protected readonly fmt = fmt;
   protected readonly fmtArea = fmtArea;
   protected readonly total = computed(() => this.store.layingSteps().length);

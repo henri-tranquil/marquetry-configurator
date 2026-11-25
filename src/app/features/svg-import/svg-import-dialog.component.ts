@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, signal, untracked, viewChild } from '@angular/core';
 import { clamp } from '../../core/geometry/geometry';
 import { colorMapping, readSvg, SvgReadResult, svgToZones } from '../../core/import/svg-import';
-import { PALETTE, Project, STRAW_COLORS, StrawColor } from '../../core/model/project';
+import { Project, STRAW_COLORS, StrawColor, strawInfo } from '../../core/model/project';
 import { fmt } from '../../shared/format';
 import { ProjectThumbComponent } from '../../shared/ui/project-thumb.component';
 import { ProjectStore } from '../../state/project.store';
@@ -67,7 +67,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
                       <span class="arrow" aria-hidden="true">→</span>
                       <select #cs [attr.aria-label]="'Paille pour la couleur ' + c.fill" (change)="setMap(c.fill, cs.value)">
                         @for (s of straws; track s) {
-                          <option [value]="s" [selected]="(mapping()[c.fill] ?? c.straw) === s">{{ palette[s].label }}</option>
+                          <option [value]="s" [selected]="(mapping()[c.fill] ?? c.straw) === s">{{ info(s).label }}</option>
                         }
                       </select>
                       <span class="n">{{ c.count }}</span>
@@ -77,7 +77,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
               } @else {
                 <select #one aria-label="Paille" (change)="setSingle(one.value)">
                   @for (s of straws; track s) {
-                    <option [value]="s" [selected]="single() === s">{{ palette[s].label }}</option>
+                    <option [value]="s" [selected]="single() === s">{{ info(s).label }}</option>
                   }
                 </select>
               }
@@ -132,7 +132,7 @@ export class SvgImportDialogComponent {
   private readonly store = inject(ProjectStore);
   private readonly ui = inject(UiStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
-  protected readonly palette = PALETTE;
+  protected readonly info = strawInfo;
   protected readonly straws = STRAW_COLORS;
 
   protected readonly read = signal<SvgReadResult | null>(null);

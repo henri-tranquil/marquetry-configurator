@@ -73,7 +73,8 @@ Règle : `core/` et `render/*.renderer.ts` ne dépendent pas d'Angular. Tout ce 
 Toutes les longueurs sont en **millimètres**, tous les angles en **degrés**. Repère : origine en haut à gauche du panneau, x vers la droite, y vers le bas (comme le canvas). La conversion vers le repère three.js (y vers le haut) se fait **uniquement** dans `render/three/`.
 
 ```ts
-type StrawColor = 'naturel' | 'ble' | 'miel' | 'brule' | 'ebene' | 'garance' | 'indigo' | 'sauge' | 'rose';
+type PaletteColor = 'naturel' | 'ble' | 'miel' | 'brule' | 'ebene' | 'garance' | 'indigo' | 'sauge' | 'rose';
+type StrawColor = PaletteColor | `#${string}`;   // teinte sur mesure #rrggbb, minuscules ; libellé et teinte via strawInfo()
 type ShapeType = 'rect' | 'ellipse' | 'tri' | 'diamond' | 'hex' | 'poly';
 type ProfileType = 'droit' | 'chanfrein' | 'arrondi';
 type FillType = 'parallele' | 'eventail' | 'chevron';
@@ -106,7 +107,7 @@ interface Project {
   panel: { w: number; h: number };
   thick: number;                 // épaisseur, 3–60
   edge: EdgeProfile;             // profil du chant extérieur
-  bg: { mode: 'paille' | 'bois'; color: StrawColor; angle: number };
+  bg: { mode: 'paille' | 'bois'; color: StrawColor; angle: number };   // 'bois' (médium nu) par défaut
   sw: number;                    // largeur d'un brin, 1–20 (4 par défaut)
   irr: number;                   // irrégularité des brins, 0–1
   light: number;                 // azimut de la lumière, 0–359
@@ -183,7 +184,7 @@ Layout (reprendre celui du prototype) :
 Store (`project.store.ts`) :
 - `project = signal<Project>`, `selectedId = signal<number | null>`, `computed` pour la zone sélectionnée, l'estimation matière et les polygones préparés.
 - Mutations : une modification « live » (slider en cours, drag) ne crée pas d'entrée d'historique. Un `commit()` à la fin du geste (pointerup, `change`) pousse l'état précédent dans l'historique (100 entrées max).
-- Persistance : `effect()` qui enregistre le dernier état commité dans localStorage, dans un try/catch. Au démarrage : localStorage normalisé, sinon le projet exemple (porte de buffet, soleil 12 rayons, chant arrondi 4 mm, trou de prise en main arrondi 6 mm).
+- Persistance : `effect()` qui enregistre le dernier état commité dans localStorage, dans un try/catch. Au démarrage : localStorage normalisé, sinon un panneau vide en médium nu (`blankProject()`). Aucun motif n'est appliqué d'office : le projet exemple (porte de buffet, soleil 12 rayons, chant arrondi 4 mm, trou de prise en main arrondi 6 mm) reste accessible depuis « Mes projets ».
 - Raccourcis : Ctrl/Cmd+Z, Ctrl/Cmd+Maj+Z ou Ctrl+Y, Suppr, Ctrl/Cmd+D (dupliquer), flèches (1 mm, Maj = 10 mm), Échap. Ignorés quand le focus est dans un champ.
 
 Conventions UI :
@@ -216,6 +217,7 @@ Conventions UI :
 - **Gabarit A4** (`core/export/plan-tiles.ts`) : pages qui se recouvrent de 10 mm, repères A1, B1…, croix de calage dans les recouvrements, règle de 50 mm pour vérifier l'impression à 100 %, orientation choisie pour économiser du papier.
 - **Pose guidée** (plan de pose) : une zone visible à la fois dans l'ordre de pose, le reste voilé, avec paille, disposition, surface visible et mètres de bande.
 - **Menu contextuel** (clic droit) sur une forme ; **aide** (touche `?`) ; **conseil** à la première visite.
+- **Suggestions** (`core/patterns/suggestions.ts`, `state/suggestions.store.ts`) : sous un panneau sans forme, des idées adaptées à ses dimensions. Un clic les montre en aperçu sur le tapis sans toucher au projet ; seul « Appliquer » les inscrit (une entrée d'historique). Fermée, la barre revient au prochain changement de gabarit, ou par le bouton Suggestions.
 - **Aperçus des motifs** avant de les ajouter ; **comparaison de deux lumières** côte à côte en rendu paille.
 - **Projets multiples** enregistrés dans le navigateur avec vignette.
 - **Mobile** : réglages dans un panneau qui glisse depuis le bas.

@@ -14,7 +14,7 @@ import {
   rng,
 } from '../core/geometry/geometry';
 import { FillPiece, zoneFillPieces } from '../core/geometry/fill';
-import { PALETTE, Point, Project, STRAW_SEGMENT, WOOD_HEX, Zone } from '../core/model/project';
+import { strawInfo, Point, Project, STRAW_SEGMENT, WOOD_HEX, Zone } from '../core/model/project';
 
 /** Passage mm → pixels CSS du canvas. */
 export interface ViewTransform {
@@ -223,7 +223,7 @@ function drawSolidPieces(ctx: Ctx2D, pieces: readonly FillPiece[], hex: string, 
 
 /** Remplit une forme selon sa disposition (parallèle, éventail, chevron). */
 export function drawZoneFill(ctx: Ctx2D, z: Zone, poly: readonly Point[], p: Project, v: ViewTransform, sp: StrawParams): void {
-  const hex = PALETTE[z.color].hex;
+  const hex = strawInfo(z.color).hex;
   const seed = zoneSeed(z.id);
   const pp = poly.map((q) => toScreen(v, q));
   const pieces = zoneFillPieces(z, [...poly], p.panel, p.sw, seed);
@@ -296,7 +296,7 @@ export function drawStrawPanel(ctx: Ctx2D, p: Project, D: Prepared, o: StrawScen
   ctx.save();
   tracePath(ctx, PP);
   ctx.clip();
-  if (p.bg.mode === 'paille') drawStraw(ctx, PP, p.bg.angle, PALETTE[p.bg.color].hex, 1, sp);
+  if (p.bg.mode === 'paille') drawStraw(ctx, PP, p.bg.angle, strawInfo(p.bg.color).hex, 1, sp);
   else if (o.mode === 'dir') {
     ctx.fillStyle = 'rgb(128,128,128)';
     ctx.fillRect(v.ox, v.oy, pw, ph);

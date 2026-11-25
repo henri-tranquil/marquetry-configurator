@@ -11,7 +11,14 @@ export const STRAW_COLORS = [
   'sauge',
   'rose',
 ] as const;
-export type StrawColor = (typeof STRAW_COLORS)[number];
+export type PaletteColor = (typeof STRAW_COLORS)[number];
+/** Paille teintée sur mesure : couleur libre au format #rrggbb (minuscules). */
+export type CustomColor = `#${string}`;
+export type StrawColor = PaletteColor | CustomColor;
+
+export function isCustomColor(c: string): c is CustomColor {
+  return /^#[0-9a-f]{6}$/.test(c);
+}
 
 export const SHAPE_TYPES = ['rect', 'ellipse', 'tri', 'diamond', 'hex', 'poly'] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
@@ -102,7 +109,7 @@ export interface StrawInfo {
   hex: string;
 }
 
-export const PALETTE: Readonly<Record<StrawColor, StrawInfo>> = {
+export const PALETTE: Readonly<Record<PaletteColor, StrawInfo>> = {
   naturel: { label: 'Naturel', hex: '#d6b25c' },
   ble: { label: 'Blé clair', hex: '#ead592' },
   miel: { label: 'Miel', hex: '#c58e3c' },
@@ -113,6 +120,11 @@ export const PALETTE: Readonly<Record<StrawColor, StrawInfo>> = {
   sauge: { label: 'Vert sauge', hex: '#6e8a56' },
   rose: { label: 'Vieux rose', hex: '#c4867f' },
 };
+
+/** Libellé et teinte d'une paille, prédéfinie ou sur mesure. */
+export function strawInfo(c: StrawColor): StrawInfo {
+  return isCustomColor(c) ? { label: `Teinte ${c}`, hex: c } : PALETTE[c];
+}
 
 /** Couleur du médium nu (fond « bois » et parois). */
 export const WOOD_HEX = '#a57f55';

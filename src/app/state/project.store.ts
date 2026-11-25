@@ -1,7 +1,7 @@
 import { computed, effect, Injectable, signal } from '@angular/core';
 import { prepare } from '../core/geometry/geometry';
 import { estimateMaterials, visibleAreas, ZoneUsage } from '../core/materials/bom';
-import { exampleProject, looksLikeProject, normalizeProject } from '../core/model/normalize';
+import { blankProject, looksLikeProject, normalizeProject } from '../core/model/normalize';
 import {
   AddKind,
   duplicateZone,
@@ -11,7 +11,7 @@ import {
   reorderZone,
   resizePanel,
 } from '../core/model/operations';
-import { Project, STORAGE_KEY, Zone } from '../core/model/project';
+import { CustomColor, isCustomColor, Project, STORAGE_KEY, Zone } from '../core/model/project';
 import { generatePattern, insertPattern, PatternOptions } from '../core/patterns/patterns';
 
 const HISTORY_MAX = 100;
@@ -31,9 +31,9 @@ function loadInitial(): Project {
       if (looksLikeProject(o)) return normalizeProject(o);
     }
   } catch {
-    /* stockage indisponible ou JSON abîmé : on repart de l'exemple */
+    /* stockage indisponible ou JSON abîmé : on repart d'un panneau vide */
   }
-  return exampleProject();
+  return blankProject();
 }
 
 /**
@@ -67,6 +67,13 @@ export class ProjectStore {
     return p.zones
       .map((zone, i) => ({ zone, number: i + 1, usage: areas.get(zone.id) }))
       .filter((s): s is LayingStep => !s.zone.hole && !!s.usage && s.usage.area > 0);
+  });
+  /** Teintes sur mesure utilisées dans le projet (zones et fond), pour les reproposer. */
+  readonly customColors = computed<CustomColor[]>(() => {
+    const p = this._committed();
+    const set = new Set<CustomColor>();
+    for (const c of [p.bg.color, ...p.zones.map((z) => z.color)]) if (isCustomColor(c)) set.add(c);
+    return [...set];
   });
   readonly canUndo = computed(() => this._history().undo > 0);
   readonly canRedo = computed(() => this._history().redo > 0);
@@ -229,8 +236,9 @@ export class ProjectStore {
     this.selectedId.set(zones.length === 1 ? (zs[zs.length - 1]?.id ?? null) : null);
   }
 
+  /** Repart d'un panneau vide en médium nu (mêmes dimensions et réglages). */
   clearZones(): void {
-    this.apply((p) => ({ ...p, zones: [] }));
+    this.apply((p) => ({ ...p, bg: { ...p.bg, mode: 'bois' }, zones: [] }));
     this.selectedId.set(null);
   }
 

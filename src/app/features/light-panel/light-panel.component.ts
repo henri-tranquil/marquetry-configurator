@@ -100,7 +100,7 @@ const normAngle360 = (a: number) => ((Math.round(a) % 360) + 360) % 360;
     <app-segmented label="Fond" [options]="bgModes" [value]="p().bg.mode" (picked)="setBg({ mode: $event }, true)" />
     @if (p().bg.mode === 'paille') {
       <div class="lab"><span>Couleur du fond</span></div>
-      <app-swatches label="Couleur du fond" [value]="p().bg.color" (picked)="setBg({ color: $event }, true)" />
+      <app-swatches label="Couleur du fond" [value]="p().bg.color" [recent]="store.customColors()" (picked)="setBg({ color: $event }, true)" />
       <app-slider-field
         label="Sens du fil du fond"
         [value]="p().bg.angle"

@@ -31,7 +31,7 @@ header {
 
 .stage {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   background: var(--mat);
   min-height: 0;
   color: #fff;
@@ -51,7 +51,7 @@ header {
   }
   svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
   .sep { width: 1px; background: rgba(255, 255, 255, 0.25); margin: 4px; }
-  .guide.on { background: #fff; color: var(--mat); border-color: #fff; }
+  .on { background: #fff; color: var(--mat); border-color: #fff; }
   .zoom {
     display: flex; margin-left: auto;
     button { min-width: 44px; justify-content: center; border-radius: 0; margin-left: -1px; padding: 0 8px; font-variant-numeric: tabular-nums; }

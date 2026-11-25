@@ -36,6 +36,7 @@ import {
 import { createFiberTexture, drawStrawPanel, toMM, ViewTransform } from '../../render/straw-2d.renderer';
 import { fmt } from '../../shared/format';
 import { ProjectStore } from '../../state/project.store';
+import { SuggestionsStore } from '../../state/suggestions.store';
 import { UiStore } from '../../state/ui.store';
 
 interface Targets {
@@ -102,6 +103,7 @@ const FIT: ZoomState = { zoom: 1, panX: 0, panY: 0 };
 export class StageCanvasComponent {
   protected readonly store = inject(ProjectStore);
   protected readonly ui = inject(UiStore);
+  private readonly sg = inject(SuggestionsStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('cv');
@@ -134,6 +136,7 @@ export class StageCanvasComponent {
       this.comparing();
       this.ui.lightB();
       this.ui.guideStep();
+      this.sg.preview();
       this.schedule();
     });
     effect(() => this.ui.zoomLevel.set(this.zoomState().zoom));
@@ -196,10 +199,12 @@ export class StageCanvasComponent {
     if (!ctx) return;
     this.layout();
     if (!this.width) return;
-    const p = this.store.project();
+    // aperçu d'une suggestion : dessiné à la place du projet, sans le modifier
+    const preview = this.sg.preview();
+    const p = preview ?? this.store.project();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
-    const D = this.store.prepared();
+    const D = this.sg.previewPrepared() ?? this.store.prepared();
     const font = '500 13px Archivo, system-ui, sans-serif';
     if (p.view === 'plan') {
       const step = this.ui.guideStep();
@@ -212,7 +217,7 @@ export class StageCanvasComponent {
       view: this.view,
       width: this.viewWidth,
       height: this.height,
-      selected: this.ui.guideStep() === null ? this.store.selected() : null,
+      selected: this.ui.guideStep() === null && !preview ? this.store.selected() : null,
       guides: this.guides,
       font,
       format: (v) => fmt(v),
@@ -318,7 +323,7 @@ export class StageCanvasComponent {
 
   /** Pendant la pose guidée, le plan est en lecture seule. */
   private get readOnly(): boolean {
-    return this.ui.guideStep() !== null;
+    return this.ui.guideStep() !== null || this.sg.preview() !== null;
   }
 
   protected down(e: PointerEvent): void {

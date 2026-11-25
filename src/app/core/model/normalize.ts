@@ -4,6 +4,7 @@ import {
   FILL_TYPES,
   StrawFill,
   LIMITS,
+  isCustomColor,
   PALETTE,
   Point,
   PROFILE_TYPES,
@@ -27,7 +28,10 @@ function num(v: unknown, def: number, min: number, max: number): number {
 }
 
 function color(v: unknown): StrawColor {
-  return typeof v === 'string' && Object.hasOwn(PALETTE, v) ? (v as StrawColor) : 'naturel';
+  if (typeof v !== 'string') return 'naturel';
+  if (Object.hasOwn(PALETTE, v)) return v as StrawColor;
+  const hex = v.trim().toLowerCase();
+  return isCustomColor(hex) ? hex : 'naturel';
 }
 
 function isShape(v: unknown): v is ShapeType {
@@ -105,7 +109,7 @@ export function normalizeProject(input: unknown): Project {
   const p: Project = {
     panel: { w: num(panel?.['w'], 400, ...L.panel), h: num(panel?.['h'], 700, ...L.panel) },
     bg: {
-      mode: bg?.['mode'] === 'bois' ? 'bois' : 'paille',
+      mode: bg?.['mode'] === 'paille' ? 'paille' : 'bois',
       color: color(bg?.['color']),
       angle: num(bg?.['angle'], 90, ...L.angle),
     },
@@ -134,6 +138,11 @@ export function looksLikeProject(v: unknown): boolean {
 }
 
 /** Projet de départ : porte de buffet en soleil, chant arrondi 4 mm, prise de main percée. */
+/** Point de départ : panneau en médium nu, sans aucune forme. */
+export function blankProject(panel: Project['panel'] = { w: 400, h: 700 }): Project {
+  return normalizeProject({ panel, bg: { mode: 'bois', color: 'naturel', angle: 90 }, zones: [] });
+}
+
 export function exampleProject(): Project {
   const p = normalizeProject({
     panel: { w: 400, h: 700 },

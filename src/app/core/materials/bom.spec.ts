@@ -7,7 +7,7 @@ describe('estimation matière', () => {
   });
 
   it('fond seul : toute la surface dans la couleur du fond', () => {
-    const p = normalizeProject({ panel: { w: 120, h: 60 }, sw: 4, bg: { color: 'miel' } });
+    const p = normalizeProject({ panel: { w: 120, h: 60 }, sw: 4, bg: { mode: 'paille', color: 'miel' } });
     const b = estimateMaterials(p);
     expect(b.rows).toHaveLength(1);
     expect(b.rows[0]!.key).toBe('miel');

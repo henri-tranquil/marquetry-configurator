@@ -19,8 +19,8 @@ function seen(): boolean {
     @if (visible()) {
       <aside class="tip" aria-label="Premiers pas">
         <p>
-          <strong>Premiers pas :</strong> clique un rayon puis change son sens du fil ; fais tourner le petit soleil pour voir
-          les reflets bouger. Clic droit sur une forme pour ses actions.
+          <strong>Premiers pas :</strong> choisis un gabarit (sous-bock, porte…), puis ajoute tes formes ou essaie une
+          suggestion : rien n'est appliqué tant que tu ne l'as pas décidé. Fais tourner le petit soleil pour voir les reflets.
         </p>
         <div class="row">
           <button type="button" (click)="help()">Tous les raccourcis</button>

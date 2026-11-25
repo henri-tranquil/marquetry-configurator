@@ -4,7 +4,7 @@
  * Ne dépend que d'une interface d'élément minimale (le DOM du navigateur la satisfait).
  */
 import { bbox, signedArea } from '../geometry/geometry';
-import { PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
+import { strawInfo, PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
 import { polyZone } from '../patterns/patterns';
 import { apply, IDENTITY, Matrix, multiply, numbers, parsePath, parseTransform, simplify } from './svg-path';
 
@@ -253,7 +253,7 @@ export function svgToZones(r: SvgReadResult, o: SvgImportOptions, startId: numbe
     if (abs.length < 3) continue;
     const fill = s.fill ?? '#d6b25c';
     const color = o.color === 'auto' ? (o.mapping?.[fill] ?? nearestStraw(fill)) : o.color;
-    const base = (s.label ?? PALETTE[color].label).slice(0, 34);
+    const base = (s.label ?? strawInfo(color).label).slice(0, 34);
     const n = (count.get(base) ?? 0) + 1;
     count.set(base, n);
     zones.push({
