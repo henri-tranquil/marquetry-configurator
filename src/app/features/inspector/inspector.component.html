@@ -1,8 +1,14 @@
 @if (zone(); as z) {
+  <div class="head">
+    <span class="kind" [class.hole]="z.hole" [style.--c]="palette[z.color].hex"></span>
+    <span class="title">{{ kindLabel() }}</span>
+    <span class="pos" title="Numéro sur le plan de pose">n° {{ layerNumber() }} du plan</span>
+  </div>
   <input
     #nm
     type="text"
     aria-label="Nom de la forme"
+    placeholder="Nom de la forme"
     [maxLength]="limits.nameLength"
     [value]="z.name"
     (input)="setName(z, nm.value)"
@@ -107,18 +113,18 @@
     }
   }
 
-  <div class="g2">
+  <div class="g2 geom">
     <app-number-field label="Centre X" [value]="round05(z.x)" [step]="0.5" (live)="live(z, { x: $event })" (committed)="commit()" />
     <app-number-field label="Centre Y" [value]="round05(z.y)" [step]="0.5" (live)="live(z, { y: $event })" (committed)="commit()" />
+    <app-number-field label="Rotation" unit="°" [value]="round(z.rot)" [step]="1" (live)="live(z, { rot: $event })" (committed)="commit()" />
     <app-number-field label="Largeur" [value]="round05(z.w)" [min]="0.5" [step]="0.5" (live)="live(z, { w: $event > 0.5 ? $event : 0.5 })" (committed)="commit()" />
     <app-number-field label="Hauteur" [value]="round05(z.h)" [min]="0.5" [step]="0.5" (live)="live(z, { h: $event > 0.5 ? $event : 0.5 })" (committed)="commit()" />
-    <app-number-field label="Rotation" unit="°" [value]="round(z.rot)" [step]="1" (live)="live(z, { rot: $event })" (committed)="commit()" />
   </div>
 
-  <div class="row actions">
+  <div class="actions">
     <button type="button" (click)="store.duplicateSelected()">Dupliquer</button>
-    <button type="button" (click)="store.moveSelected(1)">Monter</button>
-    <button type="button" (click)="store.moveSelected(-1)">Descendre</button>
+    <button type="button" title="Passe devant la forme suivante" (click)="store.moveSelected(1)">Devant</button>
+    <button type="button" title="Passe derrière la forme précédente" (click)="store.moveSelected(-1)">Derrière</button>
     <button type="button" class="warn" (click)="store.deleteSelected()">Supprimer</button>
   </div>
   @if (warning()) {

@@ -12,6 +12,7 @@ import {
   PROFILE_LABELS,
   PROFILE_TYPES,
   ProfileType,
+  SHAPE_NAMES,
   StrawColor,
   StrawFill,
   Zone,
@@ -29,8 +30,16 @@ import { ProjectStore } from '../../state/project.store';
   imports: [SwatchesComponent, SliderFieldComponent, SegmentedComponent, NumberFieldComponent],
   templateUrl: './inspector.component.html',
   styles: `
+    .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .kind { width: 22px; height: 22px; border-radius: 6px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2); flex: none; }
+    .kind.hole { background: transparent; box-shadow: inset 0 0 0 2px var(--acc); border-radius: 50%; }
+    .title { font-weight: 600; }
+    .pos { margin-left: auto; color: var(--mute); font-size: 13px; font-variant-numeric: tabular-nums; }
     .angles { margin-top: 6px; }
-    .actions { margin-top: 12px; }
+    .angles button { flex: 1; justify-content: center; padding: 0 6px; }
+    .g2.geom { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
+    .actions button { justify-content: center; padding: 0 6px; font-size: 14px; }
   `,
 })
 export class InspectorComponent {
@@ -49,6 +58,16 @@ export class InspectorComponent {
     { label: 'Gauche', cx: -0.5, cy: 0 },
     { label: 'Droite', cx: 0.5, cy: 0 },
   ];
+  protected readonly kindLabel = computed(() => {
+    const z = this.zone();
+    if (!z) return '';
+    if (z.hole) return z.type === 'ellipse' ? 'Trou rond' : 'Trou';
+    return SHAPE_NAMES[z.type];
+  });
+  protected readonly layerNumber = computed(() => {
+    const z = this.zone();
+    return z ? this.store.project().zones.indexOf(z) + 1 : 0;
+  });
   protected readonly fillType = computed<FillType>(() => this.zone()?.fill?.type ?? 'parallele');
   /** Origine en mm, repère panneau. */
   protected readonly center = computed<Point | null>(() => {

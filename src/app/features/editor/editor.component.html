@@ -7,15 +7,15 @@
         <option [value]="i">{{ pr.label }} · {{ pr.w }} × {{ pr.h }} mm</option>
       }
     </select>
-    <label class="num">
-      L <input #pw type="number" min="20" max="5000" step="1" [value]="p().panel.w" (change)="setWidth(pw.value)" /> mm
-    </label>
-    <label class="num">
-      H <input #ph type="number" min="20" max="5000" step="1" [value]="p().panel.h" (change)="setHeight(ph.value)" /> mm
-    </label>
+    <div class="dims" role="group" aria-label="Dimensions du panneau">
+      <input #pw type="number" min="20" max="5000" step="1" aria-label="Largeur du panneau (mm)" title="Largeur" [value]="p().panel.w" (change)="setWidth(pw.value)" />
+      <span aria-hidden="true">×</span>
+      <input #ph type="number" min="20" max="5000" step="1" aria-label="Hauteur du panneau (mm)" title="Hauteur" [value]="p().panel.h" (change)="setHeight(ph.value)" />
+      <span class="unit">mm</span>
+    </div>
   </div>
   <app-segmented label="Vue" [options]="views" [value]="p().view" (picked)="store.setView($event)" />
-  <div class="row">
+  <div class="row history">
     <button type="button" title="Annuler (Ctrl+Z)" [disabled]="!store.canUndo()" (click)="store.undo()">Annuler</button>
     <button type="button" title="Rétablir (Ctrl+Maj+Z)" [disabled]="!store.canRedo()" (click)="store.redo()">Rétablir</button>
   </div>
@@ -79,34 +79,27 @@
     </p>
   </main>
 
-  <aside>
-    <section aria-labelledby="h-sel">
-      <h2 id="h-sel">Sélection</h2>
+  <aside aria-label="Réglages">
+    <app-panel-section key="sel" title="Sélection" [summary]="selSummary()">
       <app-inspector />
-    </section>
-    <section aria-labelledby="h-light">
-      <h2 id="h-light">Lumière et paille</h2>
+    </app-panel-section>
+    <app-panel-section key="light" title="Lumière et paille" [summary]="lightSummary()">
       <app-light-panel (frontView)="frontView()" />
-    </section>
-    <section aria-labelledby="h-edges">
-      <h2 id="h-edges">Chants et épaisseur</h2>
-      <app-edges-panel />
-    </section>
-    <section aria-labelledby="h-pat">
-      <h2 id="h-pat">Motifs</h2>
-      <app-patterns-panel />
-    </section>
-    <section aria-labelledby="h-layers">
-      <h2 id="h-layers">Calques</h2>
+    </app-panel-section>
+    <app-panel-section key="layers" title="Calques" [summary]="layersSummary()">
       <app-layers-panel />
-    </section>
-    <section aria-labelledby="h-bom">
-      <h2 id="h-bom">Matière</h2>
+    </app-panel-section>
+    <app-panel-section key="edges" title="Chants et épaisseur" [summary]="edgesSummary()" [defaultOpen]="false">
+      <app-edges-panel />
+    </app-panel-section>
+    <app-panel-section key="patterns" title="Motifs" summary="soleil, bandes, damier…" [defaultOpen]="false">
+      <app-patterns-panel />
+    </app-panel-section>
+    <app-panel-section key="bom" title="Matière" [summary]="bomSummary()" [defaultOpen]="false">
       <app-bom-panel />
-    </section>
-    <section aria-labelledby="h-exp">
-      <h2 id="h-exp">Exporter</h2>
+    </app-panel-section>
+    <app-panel-section key="export" title="Exporter" summary="SVG 1:1, projet" [defaultOpen]="false">
       <app-export-panel />
-    </section>
+    </app-panel-section>
   </aside>
 </div>

@@ -9,7 +9,8 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <label>
-      <span>{{ label() }} ({{ unit() }})</span>
+      <span class="lbl">{{ label() }}</span>
+      <span class="box">
       <input
         #f
         type="number"
@@ -23,12 +24,17 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
         (input)="onInput(f.value)"
         (change)="committed.emit(+f.value)"
       />
+      <span class="unit" aria-hidden="true">{{ unit() }}</span>
+      </span>
+      <span class="visually-hidden">en {{ unit() === '°' ? 'degrés' : unit() }}</span>
     </label>
   `,
   styles: `
     :host { display: block; }
-    label { display: grid; gap: 3px; color: var(--mute); font-size: 14px; }
-    input { width: 100%; }
+    label { display: grid; gap: 3px; color: var(--mute); font-size: 13px; }
+    .box { position: relative; display: block; }
+    input { width: 100%; padding-right: 2.4em; }
+    .unit { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--mute); font-size: 14px; }
   `,
 })
 export class NumberFieldComponent {

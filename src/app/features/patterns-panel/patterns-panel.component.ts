@@ -62,7 +62,7 @@ import { ProjectStore } from '../../state/project.store';
       <input #rp type="checkbox" [checked]="replace()" (change)="replace.set(rp.checked)" />
       Remplacer les formes existantes (les trous restent)
     </label>
-    <div class="row"><button type="button" class="on" (click)="generate()">Ajouter le motif</button></div>
+    <div class="row"><button type="button" class="primary" (click)="generate()">Ajouter le motif</button></div>
     <p class="note">{{ meta().note }}</p>
   `,
   styles: `.top { margin-top: 0; }`,

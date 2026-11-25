@@ -12,7 +12,9 @@ header {
   padding: 12px max(16px, 2vw);
   border-bottom: 1px solid var(--line);
 }
-.num { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
+.dims { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
+.dims input { width: 5.2em; text-align: right; }
+.history { margin-left: auto; }
 .preset { width: 11em; }
 
 .work {
@@ -60,8 +62,7 @@ header {
 
 .hint { font-size: 13px; color: rgba(255, 255, 255, 0.78); padding: 6px 14px 10px; margin: 0; }
 
-aside { overflow: auto; border-left: 1px solid var(--line); }
-section { padding: 16px; border-bottom: 1px solid var(--line); }
+aside { overflow: auto; border-left: 1px solid var(--line); background: var(--bg); scrollbar-gutter: stable; }
 
 @media (max-width: 900px) {
   :host { height: auto; }

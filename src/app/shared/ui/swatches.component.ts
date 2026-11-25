@@ -23,7 +23,7 @@ import { PALETTE, STRAW_COLORS, StrawColor } from '../../core/model/project';
     :host { display: flex; flex-wrap: wrap; gap: 6px; }
     .sw {
       width: 44px; height: 44px; padding: 0; border-radius: 50%;
-      background: var(--c); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--edge);
+      background: var(--c); border: 3px solid var(--bg); box-shadow: 0 0 0 1px light-dark(var(--edge), #6a7078);
     }
     .sw.on { box-shadow: 0 0 0 2px var(--acc); }
   `,

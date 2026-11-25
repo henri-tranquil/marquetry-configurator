@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject } from '@angular/core';
 import { AddKind } from '../../core/model/operations';
-import { PANEL_PRESETS, ViewMode } from '../../core/model/project';
+import { FILL_LABELS, PANEL_PRESETS, PROFILE_LABELS, ViewMode } from '../../core/model/project';
 import { fmt } from '../../shared/format';
+import { PanelSectionComponent } from '../../shared/ui/panel-section.component';
 import { SegmentedComponent, SegOption } from '../../shared/ui/segmented.component';
 import { ProjectStore } from '../../state/project.store';
 import { ViewCommands } from '../../state/view-commands';
@@ -25,6 +26,7 @@ interface Tool {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     SegmentedComponent,
+    PanelSectionComponent,
     StageCanvasComponent,
     Viewer3dComponent,
     InspectorComponent,
@@ -45,6 +47,30 @@ export class EditorComponent {
   protected readonly presets = PANEL_PRESETS;
   protected readonly fmt = fmt;
   protected readonly is3d = computed(() => this.p().view === '3d');
+
+  /* résumés affichés quand une section est repliée */
+  protected readonly selSummary = computed(() => {
+    const z = this.store.selected();
+    if (!z) return 'rien de sélectionné';
+    const kind = z.hole ? 'trou' : FILL_LABELS[z.fill?.type ?? 'parallele'].toLowerCase();
+    return `${z.name} · ${kind}`;
+  });
+  protected readonly lightSummary = computed(() => {
+    const p = this.p();
+    return `${Math.round(p.light)}° · reflets ${Math.round(p.contrast * 100)} % · brins ${fmt(p.sw, 1)} mm`;
+  });
+  protected readonly layersSummary = computed(() => {
+    const zs = this.p().zones;
+    const holes = zs.filter((z) => z.hole).length;
+    const n = zs.length - holes;
+    return `${n} forme${n > 1 ? 's' : ''}${holes ? ` · ${holes} trou${holes > 1 ? 's' : ''}` : ''}`;
+  });
+  protected readonly edgesSummary = computed(() => {
+    const p = this.p();
+    const e = p.edge.type === 'droit' ? 'chant droit' : `${PROFILE_LABELS[p.edge.type].toLowerCase()} ${fmt(p.edge.size, p.edge.size % 1 ? 1 : 0)} mm`;
+    return `${fmt(p.thick)} mm · ${e}`;
+  });
+  protected readonly bomSummary = computed(() => `≈ ${fmt(this.store.bom().totalMeters, 1)} m de bande`);
   protected readonly views: SegOption<ViewMode>[] = [
     { value: 'rendu', label: 'Rendu paille' },
     { value: 'plan', label: 'Plan de pose' },

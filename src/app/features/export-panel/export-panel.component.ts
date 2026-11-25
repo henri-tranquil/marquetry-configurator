@@ -8,9 +8,9 @@ type DialogMode = 'copy' | 'import';
   selector: 'app-export-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="row">
-      <button type="button" (click)="copy('svg')">{{ flashed() === 'svg' ? 'Copié' : 'Copier le plan SVG (1:1)' }}</button>
-      <button type="button" (click)="download()">Télécharger le SVG</button>
+    <div class="grid">
+      <button type="button" class="primary wide" (click)="download()">Télécharger le plan SVG (1:1)</button>
+      <button type="button" (click)="copy('svg')">{{ flashed() === 'svg' ? 'Copié' : 'Copier le SVG' }}</button>
       <button type="button" (click)="copy('json')">{{ flashed() === 'json' ? 'Copié' : 'Copier le projet' }}</button>
       <button type="button" (click)="openImport()">Importer</button>
       <button type="button" class="warn" (click)="store.clearZones()">Tout effacer</button>
@@ -31,6 +31,9 @@ type DialogMode = 'copy' | 'import';
     </dialog>
   `,
   styles: `
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .grid button { justify-content: center; }
+    .wide { grid-column: 1 / -1; }
     dialog { border: 0; border-radius: 12px; padding: 18px; width: min(560px, calc(100% - 32px)); background: var(--bg); color: var(--ink); }
     dialog[open] { display: grid; gap: 12px; }
     dialog::backdrop { background: rgba(10, 14, 12, 0.55); }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 let uid = 0;
 
@@ -19,6 +19,7 @@ let uid = 0;
       [max]="max()"
       [step]="step()"
       [value]="value()"
+      [style.--pct.%]="pct()"
       [attr.aria-valuetext]="display()"
       (input)="live.emit(+r.value)"
       (change)="committed.emit()"
@@ -36,4 +37,8 @@ export class SliderFieldComponent {
   readonly live = output<number>();
   readonly committed = output();
   protected readonly id = `sl-${++uid}`;
+  protected readonly pct = computed(() => {
+    const span = this.max() - this.min();
+    return span > 0 ? ((this.value() - this.min()) / span) * 100 : 0;
+  });
 }
