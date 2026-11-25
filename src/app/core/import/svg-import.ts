@@ -3,7 +3,7 @@
  * applique les transformations, met à l'échelle en mm et choisit la paille la plus proche de chaque couleur.
  * Ne dépend que d'une interface d'élément minimale (le DOM du navigateur la satisfait).
  */
-import { bbox, signedArea } from '../geometry/geometry';
+import { bbox, bridgeHoles, pointInPolygon, signedArea } from '../geometry/geometry';
 import { strawInfo, PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
 import { polyZone } from '../patterns/patterns';
 import { apply, IDENTITY, Matrix, multiply, numbers, parsePath, parseTransform, simplify } from './svg-path';
@@ -18,6 +18,8 @@ export interface SvgNode {
 export interface SvgShape {
   /** Contour en unités SVG (après transformations). */
   pts: Point[];
+  /** Évidements à l'intérieur du contour (sous-chemins en creux). */
+  holes: Point[][];
   /** Couleur de remplissage CSS normalisée (#rrggbb), null si aucune. */
   fill: string | null;
   /** Identifiant ou titre de l'élément, pour nommer la zone. */
@@ -49,7 +51,7 @@ export function lengthMM(v: string | null): number | null {
 /** Style en ligne et attributs de présentation, avec héritage. */
 function readStyle(n: SvgNode, inherited: Record<string, string>): Record<string, string> {
   const out = { ...inherited };
-  for (const k of ['fill', 'display', 'visibility', 'opacity', 'fill-opacity']) {
+  for (const k of ['fill', 'fill-rule', 'display', 'visibility', 'opacity', 'fill-opacity']) {
     const v = n.getAttribute(k);
     if (v) out[k] = v.trim();
   }
@@ -167,6 +169,49 @@ function outlines(n: SvgNode, tol: number): Point[][] {
   }
 }
 
+/** Un point du contour a est-il dans b ? (vote sur quelques sommets, robuste aux contacts). */
+function inside(a: Point[], b: Point[]): boolean {
+  const step = Math.max(1, Math.floor(a.length / 5));
+  let yes = 0;
+  let n = 0;
+  for (let i = 0; i < a.length && n < 5; i += step, n++) if (pointInPolygon(b, a[i]![0], a[i]![1])) yes++;
+  return yes * 2 > n;
+}
+
+/**
+ * Sous-chemins d'un même élément → formes pleines avec leurs évidements.
+ * Pair-impair : un contour contenu dans un nombre impair d'autres est un creux.
+ * Non nul : un contour tourné à l'inverse de celui qui le contient est un creux.
+ */
+export function groupHoles(polys: Point[][], evenOdd: boolean): { pts: Point[]; holes: Point[][] }[] {
+  const area = polys.map((p) => signedArea(p));
+  const parent = polys.map((p, i) => {
+    let best = -1;
+    for (let j = 0; j < polys.length; j++) {
+      if (j === i || Math.abs(area[j]!) <= Math.abs(area[i]!)) continue;
+      if (inside(p, polys[j]!) && (best < 0 || Math.abs(area[j]!) < Math.abs(area[best]!))) best = j;
+    }
+    return best;
+  });
+  const depth = (i: number): number => (parent[i]! < 0 ? 0 : 1 + depth(parent[i]!));
+  const isHole = polys.map((_, i) => {
+    const pa = parent[i]!;
+    if (pa < 0) return false;
+    if (evenOdd) return depth(i) % 2 === 1;
+    return Math.sign(area[i]!) !== Math.sign(area[pa]!) && !isHoleNZ(pa);
+  });
+  function isHoleNZ(j: number): boolean {
+    const pa = parent[j]!;
+    return pa >= 0 && Math.sign(area[j]!) !== Math.sign(area[pa]!);
+  }
+  const out: { pts: Point[]; holes: Point[][] }[] = [];
+  polys.forEach((p, i) => {
+    if (isHole[i]) return;
+    out.push({ pts: p, holes: polys.filter((_, k) => isHole[k] && parent[k] === i) });
+  });
+  return out;
+}
+
 /** Parcourt l'arbre SVG et renvoie les formes remplies, dans l'ordre du document (= ordre de pose). */
 export function readSvg(root: SvgNode): SvgReadResult {
   const vb = numbers(root.getAttribute('viewBox') ?? '');
@@ -198,16 +243,17 @@ export function readSvg(root: SvgNode): SvgReadResult {
     const fillAttr = st['fill'];
     // couleur par défaut du SVG : noir si rien n'est précisé
     const fill = fillAttr === undefined ? '#000000' : parseColor(fillAttr);
-    for (const o of outlines(n, tol)) {
+    const polys = outlines(n, tol).map((o) => o.map((p) => apply(mm, p)));
+    if (!fill) {
+      skipped += polys.length;
+      return;
+    }
+    for (const s of groupHoles(polys, st['fill-rule'] === 'evenodd')) {
       if (shapes.length >= MAX_SHAPES) {
         skipped++;
         continue;
       }
-      if (!fill) {
-        skipped++;
-        continue;
-      }
-      shapes.push({ pts: o.map((p) => apply(mm, p)), fill, label: lb });
+      shapes.push({ ...s, fill, label: lb });
     }
   };
   walk(root, base, {}, null);
@@ -216,10 +262,60 @@ export function readSvg(root: SvgNode): SvgReadResult {
   const all = shapes.flatMap((s) => s.pts);
   const box = all.length ? bbox(all) : ([0, 0, vb[2] ?? 1, vb[3] ?? 1] as [number, number, number, number]);
   const drawArea = Math.max(1e-9, (box[2] - box[0]) * (box[3] - box[1]));
-  const kept = shapes.filter((s) => Math.abs(signedArea(s.pts)) > drawArea * 1e-4);
+  const kept = shapes.filter((s) => shapeArea(s) > drawArea * 1e-4);
   skipped += shapes.length - kept.length;
   return { shapes: kept, box, mmPerUnit, skipped };
 }
+
+/** Surface d'une forme, évidements déduits (unités SVG²). */
+export function shapeArea(s: Pick<SvgShape, 'pts' | 'holes'>): number {
+  return Math.abs(signedArea(s.pts)) - s.holes.reduce((a, h) => a + Math.abs(signedArea(h)), 0);
+}
+
+/** Rôle d'une forme du dessin à l'import. */
+export const IMPORT_ROLES = ['motif', 'trou', 'plaque', 'ignorer'] as const;
+export type ImportRole = (typeof IMPORT_ROLES)[number];
+
+export const ROLE_LABELS: Readonly<Record<ImportRole, string>> = {
+  motif: 'Paille',
+  trou: 'Trou',
+  plaque: 'Plaque',
+  ignorer: 'Ignorer',
+};
+
+/**
+ * Rôles proposés : la forme la plus en arrière qui couvre presque tout le dessin est la plaque
+ * (le contour du panneau), tout le reste est de la paille.
+ */
+export function guessRoles(r: SvgReadResult): ImportRole[] {
+  const drawArea = Math.max(1e-9, (r.box[2] - r.box[0]) * (r.box[3] - r.box[1]));
+  const plate = r.shapes.findIndex((s) => {
+    const b = bbox(s.pts);
+    return ((b[2] - b[0]) * (b[3] - b[1])) / drawArea > 0.92 && shapeArea(s) / drawArea > 0.6;
+  });
+  return r.shapes.map((_, i) => (i === plate && r.shapes.length > 1 ? 'plaque' : 'motif'));
+}
+
+/** Forme simplifiée, évidements raccordés, dans la limite de points d'une zone. */
+function outline(abs: Point[], holes: Point[][], maxPoints: number): Point[] {
+  const clean = (q: Point[]) => {
+    const f = q[0];
+    const l = q[q.length - 1];
+    return f && l && q.length > 3 && Math.hypot(f[0] - l[0], f[1] - l[1]) < 1e-6 ? q.slice(0, -1) : q;
+  };
+  const keep = holes.slice(0, 12);
+  let budget = maxPoints;
+  for (let pass = 0; pass < 6; pass++) {
+    const outer = simplify(clean(abs), Math.max(8, Math.round(budget * (keep.length ? 0.6 : 1))));
+    const hs = keep.map((h) => simplify(clean(h), Math.max(6, Math.round((budget * 0.4) / Math.max(1, keep.length)))));
+    const ring = hs.length ? bridgeHoles(outer, hs.filter((h) => h.length >= 3)) : outer;
+    if (ring.length <= MAX_ZONE_POINTS) return ring;
+    budget *= 0.7;
+  }
+  return simplify(clean(abs), maxPoints);
+}
+
+const MAX_ZONE_POINTS = 300;
 
 export interface SvgImportOptions {
   /** Largeur en mm du dessin une fois posé. */
@@ -235,37 +331,63 @@ export interface SvgImportOptions {
   mapping?: Readonly<Record<string, StrawColor>>;
   /** Points max par contour. */
   maxPoints: number;
+  /** Rôle de chaque forme (même ordre que r.shapes) ; absent = paille. */
+  roles?: readonly ImportRole[];
 }
 
-/** Convertit les formes lues en zones 'poly' ordinaires (ids à partir de startId). */
-export function svgToZones(r: SvgReadResult, o: SvgImportOptions, startId: number): Zone[] {
-  const bw = Math.max(1e-9, r.box[2] - r.box[0]);
-  const k = o.width / bw;
+export interface ImportPlan {
+  zones: Zone[];
+  /** Dimensions données par la plaque, si une forme a ce rôle. */
+  panel: { w: number; h: number } | null;
+  /** Contour de chaque forme une fois posée (mm, non simplifié), pour l'aperçu et la sélection. */
+  outlines: Point[][];
+}
+
+/**
+ * Convertit les formes lues. Avec une plaque : elle devient le panneau (sa boîte, à la largeur demandée)
+ * et le dessin est calé dessus. Sans plaque : le dessin est posé en (x, y) à la largeur demandée.
+ */
+export function planImport(r: SvgReadResult, o: SvgImportOptions, startId: number): ImportPlan {
+  const roles = o.roles ?? [];
+  const plateIdx = roles.indexOf('plaque');
+  const plate = plateIdx >= 0 ? r.shapes[plateIdx] : undefined;
+  const ref = plate ? bbox(plate.pts) : r.box;
+  const k = o.width / Math.max(1e-9, ref[2] - ref[0]);
+  const ox = plate ? 0 : o.x;
+  const oy = plate ? 0 : o.y;
+  const map = (q: Point[]) => q.map(([x, y]): Point => [ox + (x - ref[0]) * k, oy + (y - ref[1]) * k]);
   const zones: Zone[] = [];
   const count = new Map<string, number>();
-  for (const s of r.shapes) {
-    let abs = s.pts.map(([x, y]): Point => [o.x + (x - r.box[0]) * k, o.y + (y - r.box[1]) * k]);
-    // dernier point = premier : inutile
-    const f = abs[0];
-    const l = abs[abs.length - 1];
-    if (f && l && abs.length > 3 && Math.hypot(f[0] - l[0], f[1] - l[1]) < 1e-6) abs = abs.slice(0, -1);
-    abs = simplify(abs, o.maxPoints);
-    if (abs.length < 3) continue;
+  const outlines = r.shapes.map((s) => map(s.pts));
+  r.shapes.forEach((s, i) => {
+    const role = roles[i] ?? 'motif';
+    if (role === 'plaque' || role === 'ignorer') return;
+    const pts = outline(map(s.pts), s.holes.map(map), o.maxPoints);
+    if (pts.length < 3) return;
+    const hole = role === 'trou';
     const fill = s.fill ?? '#d6b25c';
-    const color = o.color === 'auto' ? (o.mapping?.[fill] ?? nearestStraw(fill)) : o.color;
-    const base = (s.label ?? strawInfo(color).label).slice(0, 34);
+    const color = hole ? 'naturel' : o.color === 'auto' ? (o.mapping?.[fill] ?? nearestStraw(fill)) : o.color;
+    const base = (s.label ?? (hole ? 'Trou' : strawInfo(color).label)).slice(0, 34);
     const n = (count.get(base) ?? 0) + 1;
     count.set(base, n);
-    zones.push({
+    const z: Zone = {
       id: startId + zones.length,
-      ...polyZone(abs),
+      ...polyZone(pts),
       name: n > 1 ? `${base} ${n}` : base,
       color,
       angle: o.angle,
-      hole: false,
-    });
-  }
-  return zones;
+      hole,
+    };
+    if (hole) z.edge = { type: 'droit', size: 2 };
+    zones.push(z);
+  });
+  const panel = plate ? { w: Math.max(1, Math.round((ref[2] - ref[0]) * k)), h: Math.max(1, Math.round((ref[3] - ref[1]) * k)) } : null;
+  return { zones, panel, outlines };
+}
+
+/** Raccourci sans rôles : toutes les formes deviennent de la paille. */
+export function svgToZones(r: SvgReadResult, o: SvgImportOptions, startId: number): Zone[] {
+  return planImport(r, o, startId).zones;
 }
 
 /** Couleurs distinctes trouvées dans le fichier, avec la paille proposée. */

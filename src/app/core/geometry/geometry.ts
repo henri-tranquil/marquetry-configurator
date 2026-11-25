@@ -193,6 +193,38 @@ export function overflowsPanel(box: BBox, panel: Project['panel']): boolean {
   return area > 1.5 * inside + 1e-9;
 }
 
+/**
+ * Polygone évidé → contour unique « en trou de serrure » : chaque trou est relié au contour extérieur
+ * par une couture aller-retour de largeur nulle. Remplissage, point-in-polygon et aire restent justes.
+ */
+export function bridgeHoles(outer: readonly Point[], holes: readonly (readonly Point[])[]): Point[] {
+  let ring: Point[] = [...outer];
+  const sign = Math.sign(signedArea(outer)) || 1;
+  // trous traités de droite à gauche : les coutures ne se croisent pas dans les cas courants
+  const sorted = holes
+    .filter((h) => h.length >= 3)
+    .map((h) => (Math.sign(signedArea(h)) === sign ? [...h].reverse() : [...h]))
+    .sort((a, b) => Math.max(...b.map((p) => p[0])) - Math.max(...a.map((p) => p[0])));
+  for (const h of sorted) {
+    let hi = 0;
+    for (let k = 1; k < h.length; k++) if (h[k]![0] > h[hi]![0]) hi = k;
+    const hp = h[hi]!;
+    let oi = 0;
+    let best = Infinity;
+    for (let k = 0; k < ring.length; k++) {
+      const q = ring[k]!;
+      const d = (q[0] - hp[0]) ** 2 + (q[1] - hp[1]) ** 2 + (q[0] < hp[0] ? 1e12 : 0);
+      if (d < best) {
+        best = d;
+        oi = k;
+      }
+    }
+    const loop: Point[] = [...h.slice(hi), ...h.slice(0, hi), hp];
+    ring = [...ring.slice(0, oi + 1), ...loop, ring[oi]!, ...ring.slice(oi + 1)];
+  }
+  return ring;
+}
+
 /** Moins de 3 brins de large. */
 export function isNarrow(z: Zone, sw: number): boolean {
   return !z.hole && z.type !== 'poly' && Math.min(z.w, z.h) < 3 * sw;

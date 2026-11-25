@@ -3,6 +3,7 @@ import { clamp } from '../../core/geometry/geometry';
 import { Project, STRAW_COLORS, StrawColor, strawInfo } from '../../core/model/project';
 import { generatePattern, insertPattern, PatternOptions, PATTERNS, PatternType } from '../../core/patterns/patterns';
 import { ProjectThumbComponent } from '../../shared/ui/project-thumb.component';
+import { StrawSelectComponent } from '../../shared/ui/straw-select.component';
 import { ProjectStore } from '../../state/project.store';
 
 @Component({
@@ -36,22 +37,14 @@ import { ProjectStore } from '../../state/project.store';
           </select>
         </label>
       }
-      <label>
-        Couleur A
-        <select #a (change)="colorA.set(asColor(a.value))">
-          @for (c of colors; track c) {
-            <option [value]="c" [selected]="colorA() === c">{{ info(c).label }}</option>
-          }
-        </select>
-      </label>
-      <label>
-        Couleur B
-        <select #b (change)="colorB.set(asColor(b.value))">
-          @for (c of colors; track c) {
-            <option [value]="c" [selected]="colorB() === c">{{ info(c).label }}</option>
-          }
-        </select>
-      </label>
+      <div class="col">
+        <span class="cap">Couleur A</span>
+        <app-straw-select label="Couleur A" [value]="colorA()" (picked)="colorA.set($event)" />
+      </div>
+      <div class="col">
+        <span class="cap">Couleur B</span>
+        <app-straw-select label="Couleur B" [value]="colorB()" (picked)="colorB.set($event)" />
+      </div>
       @if (meta().usesAngles) {
         <label>
           Sens A (°)
@@ -70,9 +63,11 @@ import { ProjectStore } from '../../state/project.store';
     <div class="row"><button type="button" class="primary" (click)="generate()">Ajouter le motif</button></div>
     <p class="note">{{ meta().note }}</p>
   `,
-  imports: [ProjectThumbComponent],
+  imports: [ProjectThumbComponent, StrawSelectComponent],
   styles: `
     .top { margin-top: 0; }
+    .col { display: grid; gap: 3px; min-width: 0; }
+    .cap { color: var(--mute); font-size: 14px; }
     .kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
     .kind { flex-direction: column; height: auto; padding: 6px 4px; gap: 4px; justify-content: center; font-size: 13px; background: var(--bg); color: var(--ink); }
     .kind.on { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); background: var(--bg); color: var(--ink); font-weight: 600; }
@@ -138,9 +133,6 @@ export class PatternsPanelComponent {
     this.option.set(PATTERNS[t].options?.[0]?.value ?? '');
   }
 
-  protected asColor(v: string): StrawColor {
-    return (STRAW_COLORS as readonly string[]).includes(v) ? (v as StrawColor) : 'naturel';
-  }
 
   protected angle(v: string): number {
     const n = Math.round(Number(v));

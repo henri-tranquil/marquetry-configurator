@@ -221,8 +221,8 @@ Conventions UI :
 - **Aperçus des motifs** avant de les ajouter ; **comparaison de deux lumières** côte à côte en rendu paille.
 - **Projets multiples** enregistrés dans le navigateur avec vignette.
 - **Mobile** : réglages dans un panneau qui glisse depuis le bas.
-- **Import SVG** (`core/import/`) : chaque forme remplie devient une zone `poly` dans l'ordre du document. Transformations, unités physiques (`width` en mm, cm, in…), couleurs → paille la plus proche (modifiable), simplification des contours. Le fichier est lu avec `DOMParser` et jamais inséré dans la page. Bouton dans la barre d'outils, dans Exporter, ou dépôt du fichier sur le tapis.
+- **Import SVG** (`core/import/`) : chaque forme remplie reçoit un rôle — *plaque* (devient le panneau : dimensions de sa boîte, fond médium), *paille* (zone `poly` dans l'ordre du document), *trou* (découpe) ou *ignorée*. `guessRoles` propose comme plaque la forme de fond qui couvre presque tout le dessin. Les sous-chemins en creux (règle `evenodd`, ou sens inversé en `nonzero`) restent vides : ils sont raccordés au contour par une couture de largeur nulle (`bridgeHoles`). Transformations, unités physiques (`width` en mm, cm, in…), couleurs → paille la plus proche (modifiable), simplification des contours. Le fichier est lu avec `DOMParser` et jamais inséré dans la page. Bouton dans la barre d'outils, dans Exporter, ou dépôt du fichier sur le tapis.
 
 ## Hors périmètre pour l'instant
 
-Comptes utilisateurs et backend, panneaux non rectangulaires, courbes de Bézier libres, trous et dégradés à l'import SVG (les sous-chemins évidés deviennent des zones pleines), rendu de la texture réelle des nœuds de paille.
+Comptes utilisateurs et backend, panneaux non rectangulaires (une plaque ronde importée donne sa boîte), courbes de Bézier libres, dégradés à l'import SVG, rendu de la texture réelle des nœuds de paille.
