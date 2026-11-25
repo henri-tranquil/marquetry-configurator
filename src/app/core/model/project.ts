@@ -71,7 +71,8 @@ export interface Zone {
 }
 
 export interface Project {
-  panel: { w: number; h: number };
+  /** round : panneau rond ou ovale inscrit dans w × h (sous-bock rond). */
+  panel: { w: number; h: number; round?: boolean };
   thick: number;
   edge: EdgeProfile;
   bg: { mode: BgMode; color: StrawColor; angle: number };
@@ -148,10 +149,12 @@ export interface PanelPreset {
   label: string;
   w: number;
   h: number;
+  round?: boolean;
 }
 
 export const PANEL_PRESETS: readonly PanelPreset[] = [
   { label: 'Sous-bock', w: 100, h: 100 },
+  { label: 'Sous-bock rond', w: 100, h: 100, round: true },
   { label: 'Façade de tiroir', w: 450, h: 150 },
   { label: 'Porte de buffet', w: 400, h: 700 },
   { label: 'Couvercle de boîte', w: 220, h: 140 },

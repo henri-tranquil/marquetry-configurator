@@ -50,3 +50,11 @@ describe('surface visible par zone', () => {
     expect(a.get(2)?.area).toBeCloseTo(5000, -2);
   });
 });
+
+describe('estimation sur panneau rond', () => {
+  it('ne compte que le disque', () => {
+    const p = normalizeProject({ panel: { w: 100, h: 100, round: true }, bg: { mode: 'paille', color: 'miel' }, sw: 4 });
+    const b = estimateMaterials(p);
+    expect(b.rows[0]!.area).toBeCloseTo(Math.PI * 2500, -1);
+  });
+});

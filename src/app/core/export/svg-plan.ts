@@ -21,7 +21,10 @@ export function svgPlan(p: Project): string {
   const sw = p.sw * 1.6;
   const D = prepare(p.zones);
   const fs = Math.max(4, Math.min(w, h) / 45);
-  let defs = `<clipPath id="pc"><rect width="${w}" height="${h}"/></clipPath>`;
+  const outline = p.panel.round
+    ? `<ellipse cx="${w / 2}" cy="${h / 2}" rx="${w / 2}" ry="${h / 2}"`
+    : `<rect width="${w}" height="${h}"`;
+  let defs = `<clipPath id="pc">${outline}/></clipPath>`;
   let body = '';
   const pat = (id: string, a: number, c: string) =>
     `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${sw}" height="${sw}" patternTransform="rotate(${a})">` +
@@ -87,6 +90,6 @@ export function svgPlan(p: Project): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">` +
     `<defs>${defs}</defs><g clip-path="url(#pc)">${body}${labels}</g>` +
-    `<rect width="${w}" height="${h}" fill="none" stroke="#000" stroke-width="0.5"/></svg>`
+    `${outline} fill="none" stroke="#000" stroke-width="0.5"/></svg>`
   );
 }

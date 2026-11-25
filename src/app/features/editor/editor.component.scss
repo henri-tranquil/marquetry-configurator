@@ -15,6 +15,13 @@ header {
 .dims { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
 .dims input { width: 5.2em; text-align: right; }
 .history { margin-left: auto; }
+.shape {
+  display: inline-flex;
+  button { min-width: 44px; padding: 0; justify-content: center; border-radius: 0; margin-left: -1px; }
+  button:first-child { border-radius: 8px 0 0 8px; }
+  button:last-child { border-radius: 0 8px 8px 0; }
+  svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+}
 .help { min-width: 44px; justify-content: center; font-weight: 700; border-radius: 50%; padding: 0; }
 .projects {
   max-width: 12em; gap: 6px; padding: 0 12px;

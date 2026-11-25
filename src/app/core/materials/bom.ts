@@ -1,4 +1,4 @@
-import { arcLength, perimeter, prepare, profileRadius, topAt } from '../geometry/geometry';
+import { arcLength, insidePanel, perimeter, prepare, profileRadius, topAt } from '../geometry/geometry';
 import { strawInfo, Project, StrawColor, WOOD_HEX } from '../model/project';
 
 /** Chute ajoutée aux longueurs de bande. */
@@ -46,6 +46,7 @@ export function visibleAreas(p: Project, cells = 200): Map<number, ZoneUsage> {
   const counts = new Map<number, number>();
   for (let y = st / 2; y < h; y += st)
     for (let x = st / 2; x < w; x += st) {
+      if (!insidePanel(p.panel, x, y)) continue;
       const t = topAt(D, x, y);
       if (t && t !== 'hole') counts.set(t.id, (counts.get(t.id) ?? 0) + 1);
     }
@@ -67,6 +68,7 @@ export function estimateMaterials(p: Project): Bom {
   let total = 0;
   for (let y = st / 2; y < h; y += st)
     for (let x = st / 2; x < w; x += st) {
+      if (!insidePanel(p.panel, x, y)) continue;
       total++;
       const t = topAt(D, x, y);
       if (t === 'hole') {
@@ -76,7 +78,7 @@ export function estimateMaterials(p: Project): Bom {
       const k = t ? t.color : p.bg.mode === 'paille' ? p.bg.color : 'bois';
       acc.set(k, (acc.get(k) ?? 0) + 1);
     }
-  const panelArea = w * h;
+  const panelArea = p.panel.round ? (Math.PI * w * h) / 4 : w * h;
   const cell = total ? panelArea / total : 0;
   const rows: BomRow[] = [...acc.entries()]
     .sort((a, b) => b[1] - a[1])

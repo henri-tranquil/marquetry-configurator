@@ -124,7 +124,10 @@ export class EditorComponent {
 
   protected applyPreset(sel: HTMLSelectElement): void {
     const pr = this.presets[Number(sel.value)];
-    if (pr) this.store.setPanelSize(pr.w, pr.h);
+    if (pr) {
+      this.store.setPanelSize(pr.w, pr.h);
+      if (!!pr.round !== !!this.p().panel.round) this.store.setRound(!!pr.round);
+    }
     sel.value = '';
   }
 

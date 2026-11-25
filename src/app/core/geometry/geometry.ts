@@ -139,7 +139,7 @@ export function pickAt(
   x: number,
   y: number,
 ): Zone | null {
-  if (x < 0 || y < 0 || x > panel.w || y > panel.h) return null;
+  if (!insidePanel(panel, x, y)) return null;
   for (let i = D.holes.length - 1; i >= 0; i--) {
     const o = D.holes[i] as PreparedZone;
     if (hitPrepared(o, x, y)) return o.zone;
@@ -151,11 +151,20 @@ export function pickAt(
   return null;
 }
 
+/** Le point (mm) est-il sur le panneau ? */
+export function insidePanel(panel: Project['panel'], x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x > panel.w || y > panel.h) return false;
+  if (!panel.round) return true;
+  const dx = (x - panel.w / 2) / (panel.w / 2);
+  const dy = (y - panel.h / 2) / (panel.h / 2);
+  return dx * dx + dy * dy <= 1;
+}
+
 /** Point réellement visible de la zone pour y poser son numéro de pose. */
 export function labelPoint(D: Prepared, o: PreparedZone, panel: Project['panel']): Point | null {
   const { w, h } = panel;
   const z = o.zone;
-  if (z.x > 0 && z.x < w && z.y > 0 && z.y < h && topAt(D, z.x, z.y) === z) return [z.x, z.y];
+  if (insidePanel(panel, z.x, z.y) && topAt(D, z.x, z.y) === z) return [z.x, z.y];
   const x0 = Math.max(0, o.box[0]);
   const x1 = Math.min(w, o.box[2]);
   const y0 = Math.max(0, o.box[1]);
@@ -166,7 +175,7 @@ export function labelPoint(D: Prepared, o: PreparedZone, panel: Project['panel']
     for (let j = 1; j < 10; j++) {
       const x = x0 + ((x1 - x0) * i) / 10;
       const y = y0 + ((y1 - y0) * j) / 10;
-      if (topAt(D, x, y) === z) v.push([x, y]);
+      if (insidePanel(panel, x, y) && topAt(D, x, y) === z) v.push([x, y]);
     }
   if (!v.length) return null;
   let mx = 0;
@@ -230,7 +239,16 @@ export function isNarrow(z: Zone, sw: number): boolean {
   return !z.hole && z.type !== 'poly' && Math.min(z.w, z.h) < 3 * sw;
 }
 
+/** Contour du panneau : rectangle, ou ellipse inscrite (96 points) pour un panneau rond. */
 export function panelPolygon(panel: Project['panel']): Point[] {
+  if (panel.round) {
+    const rx = panel.w / 2;
+    const ry = panel.h / 2;
+    return Array.from({ length: 96 }, (_, i): Point => {
+      const t = (i / 96) * Math.PI * 2;
+      return [rx + rx * Math.cos(t), ry + ry * Math.sin(t)];
+    });
+  }
   return [
     [0, 0],
     [panel.w, 0],

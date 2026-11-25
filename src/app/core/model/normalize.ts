@@ -107,7 +107,11 @@ export function normalizeProject(input: unknown): Project {
   const L = LIMITS;
   const view = o?.['view'];
   const p: Project = {
-    panel: { w: num(panel?.['w'], 400, ...L.panel), h: num(panel?.['h'], 700, ...L.panel) },
+    panel: {
+      w: num(panel?.['w'], 400, ...L.panel),
+      h: num(panel?.['h'], 700, ...L.panel),
+      ...(panel?.['round'] === true ? { round: true } : {}),
+    },
     bg: {
       mode: bg?.['mode'] === 'paille' ? 'paille' : 'bois',
       color: color(bg?.['color']),

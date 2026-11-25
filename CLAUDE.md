@@ -104,7 +104,7 @@ interface Zone {
 }
 
 interface Project {
-  panel: { w: number; h: number };
+  panel: { w: number; h: number; round?: boolean };   // round : disque ou ovale inscrit dans w × h
   thick: number;                 // épaisseur, 3–60
   edge: EdgeProfile;             // profil du chant extérieur
   bg: { mode: 'paille' | 'bois'; color: StrawColor; angle: number };   // 'bois' (médium nu) par défaut
@@ -222,7 +222,9 @@ Conventions UI :
 - **Projets multiples** enregistrés dans le navigateur avec vignette.
 - **Mobile** : réglages dans un panneau qui glisse depuis le bas.
 - **Import SVG** (`core/import/`) : chaque forme remplie reçoit un rôle — *plaque* (devient le panneau : dimensions de sa boîte, fond médium), *paille* (zone `poly` dans l'ordre du document), *trou* (découpe) ou *ignorée*. `guessRoles` propose comme plaque la forme de fond qui couvre presque tout le dessin. Les sous-chemins en creux (règle `evenodd`, ou sens inversé en `nonzero`) restent vides : ils sont raccordés au contour par une couture de largeur nulle (`bridgeHoles`). Transformations, unités physiques (`width` en mm, cm, in…), couleurs → paille la plus proche (modifiable), simplification des contours. Le fichier est lu avec `DOMParser` et jamais inséré dans la page. Bouton dans la barre d'outils, dans Exporter, ou dépôt du fichier sur le tapis.
+- **Dessin au trait** (`core/import/trace-cells.ts`, `trace-plan.ts`, `features/svg-import/trace-builder.component.ts`) : un SVG fait de contours non remplis est tracé sur une grille ; chaque espace fermé entre les traits devient une case, et les pixels de trait sont partagés entre cases voisines. On réunit des cases (clic ou glisser) pour créer une zone *plaque*, *paille* ou *trou* ; la plaque est un calque à part sur lequel se posent les autres. Une plaque elliptique donne un panneau rond.
+- **Panneau rond** (`panel.round`) : `panelPolygon` renvoie une ellipse de 96 points, `insidePanel()` sert au hit-test, à l'estimation et au numéro de pose ; fonds, contours, SVG du plan et 3D suivent ce contour. Gabarit « Sous-bock rond » et bascule rectangle / rond dans l'en-tête.
 
 ## Hors périmètre pour l'instant
 
-Comptes utilisateurs et backend, panneaux non rectangulaires (une plaque ronde importée donne sa boîte), courbes de Bézier libres, dégradés à l'import SVG, rendu de la texture réelle des nœuds de paille.
+Comptes utilisateurs et backend, panneaux de forme libre (seuls rectangle et rond/ovale existent), courbes de Bézier libres, dégradés à l'import SVG, rendu de la texture réelle des nœuds de paille.

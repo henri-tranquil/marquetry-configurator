@@ -1,11 +1,12 @@
 /**
- * SVG → zones. Lit les formes fermées (path, rect, circle, ellipse, polygon, polyline, line ignorée),
+ * SVG → zones. Lit les formes fermées (path, rect, circle, ellipse, polygon, polyline, line),
  * applique les transformations, met à l'échelle en mm et choisit la paille la plus proche de chaque couleur.
  * Ne dépend que d'une interface d'élément minimale (le DOM du navigateur la satisfait).
  */
 import { bbox, bridgeHoles, pointInPolygon, signedArea } from '../geometry/geometry';
 import { strawInfo, PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
 import { polyZone } from '../patterns/patterns';
+import { isEllipse } from './trace-cells';
 import { apply, IDENTITY, Matrix, multiply, numbers, parsePath, parseTransform, simplify } from './svg-path';
 
 /** Ce dont on a besoin d'un élément XML. */
@@ -34,6 +35,8 @@ export interface SvgReadResult {
   mmPerUnit: number | null;
   /** Formes ignorées (ouvertes, trop petites, dégénérées). */
   skipped: number;
+  /** Tous les traits visibles (contours tracés ou bords de formes remplies), pour construire des zones depuis le tracé. */
+  lines: Point[][];
 }
 
 const UNIT_MM: Record<string, number> = { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72, pc: 25.4 / 6, px: 25.4 / 96, '': 25.4 / 96 };
@@ -51,7 +54,7 @@ export function lengthMM(v: string | null): number | null {
 /** Style en ligne et attributs de présentation, avec héritage. */
 function readStyle(n: SvgNode, inherited: Record<string, string>): Record<string, string> {
   const out = { ...inherited };
-  for (const k of ['fill', 'fill-rule', 'display', 'visibility', 'opacity', 'fill-opacity']) {
+  for (const k of ['fill', 'fill-rule', 'stroke', 'display', 'visibility', 'opacity', 'fill-opacity']) {
     const v = n.getAttribute(k);
     if (v) out[k] = v.trim();
   }
@@ -154,12 +157,19 @@ function outlines(n: SvgNode, tol: number): Point[][] {
       const ry = num(n, 'ry');
       return rx > 0 && ry > 0 ? [ellipsePts(num(n, 'cx'), num(n, 'cy'), rx, ry)] : [];
     }
+    case 'line':
+      return [
+        [
+          [num(n, 'x1'), num(n, 'y1')],
+          [num(n, 'x2'), num(n, 'y2')],
+        ],
+      ];
     case 'polygon':
     case 'polyline': {
       const v = numbers(n.getAttribute('points') ?? '');
       const pts: Point[] = [];
       for (let i = 0; i + 1 < v.length; i += 2) pts.push([v[i]!, v[i + 1]!]);
-      return pts.length >= 3 ? [pts] : [];
+      return pts.length >= 2 ? [pts] : [];
     }
     case 'path':
       // un sous-chemin rempli est fermé implicitement
@@ -227,6 +237,7 @@ export function readSvg(root: SvgNode): SvgReadResult {
   const tol = vb.length === 4 ? Math.max(vb[2]!, vb[3]!) / 2000 : 0.5;
 
   const shapes: SvgShape[] = [];
+  const lines: Point[][] = [];
   let skipped = 0;
   const walk = (n: SvgNode, m: Matrix, style: Record<string, string>, label: string | null) => {
     const tag = n.tagName.replace(/^svg:/, '');
@@ -244,10 +255,13 @@ export function readSvg(root: SvgNode): SvgReadResult {
     // couleur par défaut du SVG : noir si rien n'est précisé
     const fill = fillAttr === undefined ? '#000000' : parseColor(fillAttr);
     const polys = outlines(n, tol).map((o) => o.map((p) => apply(mm, p)));
+    const stroke = parseColor(st['stroke']);
+    if (fill || stroke) lines.push(...polys.filter((q) => q.length >= 2));
     if (!fill) {
       skipped += polys.length;
       return;
     }
+    if (tag === 'line') return;
     for (const s of groupHoles(polys, st['fill-rule'] === 'evenodd')) {
       if (shapes.length >= MAX_SHAPES) {
         skipped++;
@@ -259,12 +273,12 @@ export function readSvg(root: SvgNode): SvgReadResult {
   walk(root, base, {}, null);
 
   // ignorer les miettes (moins de 1/10 000 de la surface du dessin)
-  const all = shapes.flatMap((s) => s.pts);
+  const all = shapes.length ? shapes.flatMap((s) => s.pts) : lines.flat();
   const box = all.length ? bbox(all) : ([0, 0, vb[2] ?? 1, vb[3] ?? 1] as [number, number, number, number]);
   const drawArea = Math.max(1e-9, (box[2] - box[0]) * (box[3] - box[1]));
   const kept = shapes.filter((s) => shapeArea(s) > drawArea * 1e-4);
   skipped += shapes.length - kept.length;
-  return { shapes: kept, box, mmPerUnit, skipped };
+  return { shapes: kept, box, mmPerUnit, skipped, lines };
 }
 
 /** Surface d'une forme, évidements déduits (unités SVG²). */
@@ -338,7 +352,7 @@ export interface SvgImportOptions {
 export interface ImportPlan {
   zones: Zone[];
   /** Dimensions données par la plaque, si une forme a ce rôle. */
-  panel: { w: number; h: number } | null;
+  panel: { w: number; h: number; round?: boolean } | null;
   /** Contour de chaque forme une fois posée (mm, non simplifié), pour l'aperçu et la sélection. */
   outlines: Point[][];
 }
@@ -381,7 +395,12 @@ export function planImport(r: SvgReadResult, o: SvgImportOptions, startId: numbe
     if (hole) z.edge = { type: 'droit', size: 2 };
     zones.push(z);
   });
-  const panel = plate ? { w: Math.max(1, Math.round((ref[2] - ref[0]) * k)), h: Math.max(1, Math.round((ref[3] - ref[1]) * k)) } : null;
+  let panel: ImportPlan['panel'] = null;
+  if (plate) {
+    const w = Math.max(1, Math.round((ref[2] - ref[0]) * k));
+    const h = Math.max(1, Math.round((ref[3] - ref[1]) * k));
+    panel = !plate.holes.length && isEllipse(plate.pts) ? { w, h, round: true } : { w, h };
+  }
   return { zones, panel, outlines };
 }
 

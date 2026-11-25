@@ -11,12 +11,15 @@ import {
   shapeArea,
   SvgReadResult,
 } from '../../core/import/svg-import';
+import { buildCells } from '../../core/import/trace-cells';
+import { planTrace, traceRefBox, traceShapes, TraceZone } from '../../core/import/trace-plan';
 import { Point, Project, StrawColor } from '../../core/model/project';
 import { fmt } from '../../shared/format';
 import { ProjectThumbComponent } from '../../shared/ui/project-thumb.component';
 import { StrawSelectComponent } from '../../shared/ui/straw-select.component';
 import { ProjectStore } from '../../state/project.store';
 import { UiStore } from '../../state/ui.store';
+import { TraceBuilderComponent } from './trace-builder.component';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -37,7 +40,7 @@ interface ShapeRow {
 @Component({
   selector: 'app-svg-import-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ProjectThumbComponent, StrawSelectComponent],
+  imports: [ProjectThumbComponent, StrawSelectComponent, TraceBuilderComponent],
   template: `
     <dialog #dlg aria-labelledby="svg-title" (close)="closed()">
       <div class="head">
@@ -48,7 +51,18 @@ interface ShapeRow {
         <p class="err" role="alert">{{ e }}</p>
       }
       @if (read(); as r) {
+        @if (r.shapes.length && r.lines.length) {
+          <div class="tabs" role="tablist" aria-label="Mode d'import">
+            <button type="button" role="tab" [class.on]="source() === 'formes'" [attr.aria-selected]="source() === 'formes'" (click)="source.set('formes')">Formes remplies du fichier</button>
+            <button type="button" role="tab" [class.on]="source() === 'trace'" [attr.aria-selected]="source() === 'trace'" (click)="source.set('trace')">Construire les zones depuis le tracé</button>
+          </div>
+        } @else if (source() === 'trace') {
+          <p class="note">Dessin au trait : clique les cases entre les traits pour construire tes zones.</p>
+        }
         <div class="body">
+          @if (source() === 'trace' && grid(); as g) {
+            <app-trace-builder [grid]="g" [(zones)]="traceZones" />
+          } @else {
           <div class="left">
             <figure class="preview">
               <app-project-thumb [project]="preview()" [size]="360" [highlight]="highlight()" (pickedAt)="pickAt($event)" />
@@ -83,8 +97,15 @@ interface ShapeRow {
               </div>
             </fieldset>
           </div>
+          }
           <div class="opts">
             <p class="file">{{ fileName() }}</p>
+            @if (source() === 'trace') {
+              <figure class="preview small">
+                <app-project-thumb [project]="preview()" [size]="220" />
+                <figcaption>{{ summary() }}</figcaption>
+              </figure>
+            }
             <div class="g2">
               <label>
                 {{ hasPlate() ? 'Largeur de la plaque' : 'Largeur du dessin' }}
@@ -107,12 +128,15 @@ interface ShapeRow {
               }
             </div>
             @if (hasPlate()) {
-              <p class="note">La plaque devient le panneau : {{ fmt(planPanel()?.w ?? 0) }} × {{ fmt(planPanel()?.h ?? 0) }} mm, en médium nu. Le panneau reste rectangulaire : une plaque ronde donne sa boîte.</p>
+              <p class="note">
+                La plaque devient le panneau en médium nu : {{ planPanel()?.round ? 'rond, Ø ' + fmt(planPanel()?.w ?? 0) : fmt(planPanel()?.w ?? 0) + ' × ' + fmt(planPanel()?.h ?? 0) }} mm.
+              </p>
             }
             <label>
               Sens du fil
               <span class="box"><input #an type="number" min="0" max="179" step="5" [value]="angle()" (change)="angle.set(clampAngle(+an.value))" /><span class="unit">°</span></span>
             </label>
+            @if (source() === 'formes') {
             <fieldset>
               <legend>Couleurs de la paille</legend>
               <label class="chk"><input type="radio" name="cm" [checked]="mode() === 'auto'" (change)="mode.set('auto')" /> Paille la plus proche de chaque couleur</label>
@@ -133,24 +157,25 @@ interface ShapeRow {
                 <app-straw-select label="Paille" [value]="single()" (picked)="single.set($event)" />
               }
             </fieldset>
+            }
             <label>
               Finesse des contours · {{ maxPoints() }} points max
               <input #mp type="range" min="24" max="300" step="4" [value]="maxPoints()" [style.--pct.%]="((maxPoints() - 24) / 276) * 100" (input)="maxPoints.set(+mp.value)" />
             </label>
             <label class="chk"><input #rp type="checkbox" [checked]="replace()" (change)="replace.set(rp.checked)" /> Remplacer les formes existantes</label>
-            @if (!hasPlate()) {
+            @if (!hasPlate() && source() === 'formes') {
               <label class="chk"><input #fp type="checkbox" [checked]="fitToDrawing()" (change)="fitToDrawing.set(fp.checked)" /> Ajuster le panneau au dessin</label>
             }
           </div>
         </div>
         <div class="row end">
           <button type="button" (click)="dlg.close()">Annuler</button>
-          <button type="button" class="primary" [disabled]="!plan().zones.length && !hasPlate()" (click)="confirm()">Importer</button>
+          <button type="button" class="primary" [disabled]="!plan().zones.length && !planPanel()" (click)="confirm()">Importer</button>
         </div>
         <p class="note">
           Plaque : le contour du panneau. Paille : une zone posée dans l'ordre du fichier (la dernière passe devant). Trou : une
-          découpe traversante. Les creux d'un dessin (l'intérieur d'un « O ») restent vides. Traits seuls, textes et dégradés
-          sont ignorés.
+          découpe traversante. Les creux d'un dessin (l'intérieur d'un « O ») restent vides. Un dessin au trait
+          (contours sans remplissage) se découpe en cases à réunir en zones. Textes et dégradés sont ignorés.
         </p>
       }
     </dialog>
@@ -166,6 +191,11 @@ interface ShapeRow {
     .left { display: grid; gap: 10px; align-content: start; }
     .preview { margin: 0; padding: 12px; border-radius: 10px; background: #2c5a4e; display: grid; justify-items: center; align-content: center; gap: 8px; }
     .preview app-project-thumb { width: 100%; height: 300px; cursor: pointer; }
+    .preview.small app-project-thumb { height: 180px; cursor: default; }
+    .tabs { display: flex; margin-top: 10px; }
+    .tabs button { flex: 1; justify-content: center; border-radius: 0; margin-left: -1px; }
+    .tabs button:first-child { border-radius: 8px 0 0 8px; }
+    .tabs button:last-child { border-radius: 0 8px 8px 0; }
     figcaption { color: #e8efe9; font-size: 13px; text-align: center; }
     .opts { display: grid; gap: 10px; align-content: start; }
     .opts > label:not(.chk), .g2 label { display: grid; gap: 3px; color: var(--mute); font-size: 13px; }
@@ -215,12 +245,27 @@ export class SvgImportDialogComponent {
   protected readonly fitToDrawing = signal(false);
   protected readonly roles = signal<ImportRole[]>([]);
   protected readonly selected = signal<number | null>(null);
+  /** Formes remplies du fichier, ou zones construites à partir des traits. */
+  protected readonly source = signal<'formes' | 'trace'>('formes');
+  protected readonly traceZones = signal<TraceZone[]>([]);
+  protected readonly grid = computed(() => {
+    const r = this.read();
+    return r && this.source() === 'trace' && r.lines.length ? buildCells(r.lines) : null;
+  });
+  private readonly tracedShapes = computed(() => {
+    const g = this.grid();
+    return g ? traceShapes(g, this.traceZones()) : new Map();
+  });
 
-  protected readonly hasPlate = computed(() => this.roles().includes('plaque'));
+  protected readonly hasPlate = computed(() =>
+    this.source() === 'trace' ? this.traceZones().some((z) => z.role === 'plaque') : this.roles().includes('plaque'),
+  );
   /** Boîte de référence : la plaque si elle existe, sinon tout le dessin (unités SVG). */
   private readonly refBox = computed(() => {
     const r = this.read();
     if (!r) return [0, 0, 1, 1] as const;
+    const g = this.grid();
+    if (g) return traceRefBox(g, this.traceZones(), this.tracedShapes());
     const plate = r.shapes[this.roles().indexOf('plaque')];
     return plate ? bbox(plate.pts) : r.box;
   });
@@ -267,6 +312,17 @@ export class SvgImportDialogComponent {
     const r = this.read();
     if (!r) return { zones: [], panel: null, outlines: [] };
     const panel = this.targetPanel();
+    const g = this.grid();
+    if (g) {
+      const t = planTrace(
+        g,
+        this.traceZones(),
+        { width: this.width(), x: (panel.w - this.width()) / 2, y: (panel.h - this.height()) / 2, angle: this.angle(), maxPoints: this.maxPoints() },
+        1,
+        this.tracedShapes(),
+      );
+      return { ...t, outlines: [] as Point[][] };
+    }
     return planImport(
       r,
       {
@@ -314,12 +370,26 @@ export class SvgImportDialogComponent {
       const f = this.ui.svgFile();
       if (f) untracked(() => void this.load(f));
     });
+    // une plaque apparaît (ou disparaît) : la largeur devient celle de la plaque, à sa taille réelle si on la connaît
+    let hadPlate = false;
+    effect(() => {
+      const has = this.hasPlate();
+      if (has === hadPlate) return;
+      hadPlate = has;
+      untracked(() => {
+        if (!this.read()) return;
+        const panel = this.store.committed().panel;
+        if (has) this.width.set(this.read()?.mmPerUnit ? this.naturalWidth() : panel.w);
+        else this.fitPanel(0.8);
+      });
+    });
   }
 
   private async load(f: File): Promise<void> {
     this.error.set(null);
     this.read.set(null);
     this.selected.set(null);
+    this.traceZones.set([]);
     this.fileName.set(f.name);
     const d = this.dialog().nativeElement;
     if (!d.open) d.showModal();
@@ -341,10 +411,12 @@ export class SvgImportDialogComponent {
       return;
     }
     const r = readSvg(root);
-    if (!r.shapes.length) {
-      this.error.set('Aucune forme remplie dans ce fichier. Les contours seuls (sans remplissage) et les textes ne sont pas importés : convertis-les en objets remplis.');
+    if (!r.shapes.length && !r.lines.length) {
+      this.error.set('Aucun tracé ni aucune forme dans ce fichier. Les textes ne sont pas importés : convertis-les en objets.');
       return;
     }
+    // dessin au trait seulement : on construit les zones à partir des cases
+    this.source.set(r.shapes.length ? 'formes' : 'trace');
     this.mapping.set({});
     this.roles.set(guessRoles(r));
     this.read.set(r);

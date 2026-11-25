@@ -3,6 +3,7 @@ import {
   arcLength,
   bbox,
   edgeInfo,
+  insidePanel,
   isNarrow,
   labelPoint,
   normAngle,
@@ -129,5 +130,21 @@ describe('géométrie', () => {
     const xs = [a(), a(), a()];
     expect([b(), b(), b()]).toEqual(xs);
     for (const x of xs) expect(x).toBeGreaterThan(0);
+  });
+});
+
+describe('panneau rond', () => {
+  const panel = { w: 100, h: 100, round: true };
+
+  it('contour en cercle inscrit, aire ≈ πr²', () => {
+    const pp = panelPolygon(panel);
+    expect(pp.length).toBeGreaterThan(60);
+    expect(Math.abs(signedArea(pp))).toBeCloseTo(Math.PI * 2500, -2);
+  });
+
+  it('les coins ne font pas partie du panneau', () => {
+    expect(insidePanel(panel, 50, 50)).toBe(true);
+    expect(insidePanel(panel, 4, 4)).toBe(false);
+    expect(insidePanel({ w: 100, h: 100 }, 4, 4)).toBe(true);
   });
 });

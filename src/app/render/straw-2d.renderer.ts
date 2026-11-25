@@ -289,7 +289,8 @@ export function drawStrawPanel(ctx: Ctx2D, p: Project, D: Prepared, o: StrawScen
     ctx.shadowBlur = 20;
     ctx.shadowOffsetY = 7;
     ctx.fillStyle = WOOD_HEX;
-    ctx.fillRect(v.ox, v.oy, pw, ph);
+    tracePath(ctx, PP);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -360,6 +361,7 @@ export function drawStrawPanel(ctx: Ctx2D, p: Project, D: Prepared, o: StrawScen
     ctx.restore();
     ctx.strokeStyle = 'rgba(0,0,0,.4)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(v.ox + 0.5, v.oy + 0.5, pw - 1, ph - 1);
+    tracePath(ctx, PP);
+    ctx.stroke();
   }
 }

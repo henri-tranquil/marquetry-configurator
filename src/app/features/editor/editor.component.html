@@ -8,7 +8,7 @@
     <select #preset class="preset" aria-label="Gabarit de panneau" (change)="applyPreset(preset)">
       <option value="">Gabarit…</option>
       @for (pr of presets; track pr.label; let i = $index) {
-        <option [value]="i">{{ pr.label }} · {{ pr.w }} × {{ pr.h }} mm</option>
+        <option [value]="i">{{ pr.label }} · {{ pr.round ? 'Ø ' + pr.w : pr.w + ' × ' + pr.h }} mm</option>
       }
     </select>
     <div class="dims" role="group" aria-label="Dimensions du panneau">
@@ -16,6 +16,14 @@
       <span aria-hidden="true">×</span>
       <input #ph type="number" min="20" max="5000" step="1" aria-label="Hauteur du panneau (mm)" title="Hauteur" [value]="p().panel.h" (change)="setHeight(ph.value)" />
       <span class="unit">mm</span>
+    </div>
+    <div class="shape" role="radiogroup" aria-label="Forme du panneau">
+      <button type="button" role="radio" title="Panneau rectangulaire" aria-label="Rectangulaire" [class.on]="!p().panel.round" [attr.aria-checked]="!p().panel.round" (click)="store.setRound(false)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" /></svg>
+      </button>
+      <button type="button" role="radio" title="Panneau rond (ovale si largeur ≠ hauteur)" aria-label="Rond" [class.on]="p().panel.round" [attr.aria-checked]="!!p().panel.round" (click)="store.setRound(true)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" /></svg>
+      </button>
     </div>
   </div>
   <app-segmented label="Vue" [options]="views" [value]="p().view" (picked)="store.setView($event)" />

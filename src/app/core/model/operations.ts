@@ -54,7 +54,7 @@ export function resizePanel(p: Project, w: number, h: number): Project {
   const sy = nh / p.panel.h;
   return {
     ...p,
-    panel: { w: nw, h: nh },
+    panel: { ...p.panel, w: nw, h: nh },
     zones: p.zones.map((z) => ({
       ...z,
       x: z.x * sx,

@@ -108,7 +108,8 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
   ctx.shadowBlur = 20;
   ctx.shadowOffsetY = 7;
   ctx.fillStyle = '#fff';
-  ctx.fillRect(v.ox, v.oy, pw, ph);
+  tracePath(ctx, PP);
+  ctx.fill();
   ctx.restore();
 
   ctx.save();
@@ -163,7 +164,8 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
 
   ctx.strokeStyle = 'rgba(0,0,0,.4)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(v.ox + 0.5, v.oy + 0.5, pw - 1, ph - 1);
+  tracePath(ctx, PP);
+  ctx.stroke();
 
   for (const z of D.zones) if (hasFillCenter(z.zone)) drawCenterMark(ctx, z.zone, v);
 
