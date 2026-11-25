@@ -181,6 +181,18 @@ export function labelPoint(D: Prepared, o: PreparedZone, panel: Project['panel']
   return best;
 }
 
+/**
+ * La forme déborde-t-elle largement du panneau (secteurs du soleil) ?
+ * Ces formes ne servent ni de repère d'aimantation ni de support de poignées.
+ */
+export function overflowsPanel(box: BBox, panel: Project['panel']): boolean {
+  const area = (box[2] - box[0]) * (box[3] - box[1]);
+  const w = Math.min(box[2], panel.w) - Math.max(box[0], 0);
+  const h = Math.min(box[3], panel.h) - Math.max(box[1], 0);
+  const inside = w > 0 && h > 0 ? w * h : 0;
+  return area > 1.5 * inside + 1e-9;
+}
+
 /** Moins de 3 brins de large. */
 export function isNarrow(z: Zone, sw: number): boolean {
   return !z.hole && z.type !== 'poly' && Math.min(z.w, z.h) < 3 * sw;

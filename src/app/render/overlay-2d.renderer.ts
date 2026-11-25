@@ -1,11 +1,13 @@
 /** Surimpressions de l'éditeur : cotes, sélection et poignées, soleil d'azimut. */
 import { fillCenter, hasFillCenter } from '../core/geometry/fill';
-import { RAD, zonePolygon } from '../core/geometry/geometry';
+import { bbox, overflowsPanel, panelPolygon, RAD, zonePolygon } from '../core/geometry/geometry';
 import { SnapGuides } from '../core/geometry/snap';
 import { Point, Project, Zone } from '../core/model/project';
 import { Ctx2D, toScreen, tracePath, ViewTransform } from './straw-2d.renderer';
 
 export interface Handles {
+  /** Taille et rotation proposées ? Non pour les formes qui débordent largement (secteurs). */
+  transformable: boolean;
   /** Poignée de taille (coin bas droit) : proportions gardées. */
   size: Point;
   /** Milieu du côté droit : largeur seule (absente si la forme est trop petite à l'écran). */
@@ -19,7 +21,7 @@ export interface Handles {
   center: Point | null;
 }
 
-export function zoneHandles(z: Zone, v: ViewTransform): Handles {
+export function zoneHandles(z: Zone, v: ViewTransform, panel: Project['panel']): Handles {
   const r = z.rot * RAD;
   const c = Math.cos(r);
   const s = Math.sin(r);
@@ -28,6 +30,7 @@ export function zoneHandles(z: Zone, v: ViewTransform): Handles {
   // sous ~56 px, les poignées de côté se marcheraient dessus avec celle du coin
   const roomy = Math.min(z.w, z.h) * v.scale >= 56;
   return {
+    transformable: !overflowsPanel(bbox(zonePolygon(z)), panel),
     size: L(0.5, 0.5),
     sideW: roomy ? L(0.5, 0) : null,
     sideH: roomy ? L(0, 0.5) : null,
@@ -52,6 +55,10 @@ export function azimuthAt(x: number, y: number, width: number, height: number): 
 }
 
 export interface OverlayOptions {
+  /** Pas de soleil (vue de droite en comparaison). */
+  noSun?: boolean;
+  /** Étiquette affichée au-dessus du panneau (comparaison). */
+  caption?: string;
   view: ViewTransform;
   width: number;
   height: number;
@@ -80,14 +87,20 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
   const z = o.selected;
   if (z) {
     const pp = zonePolygon(z).map((q) => toScreen(v, q));
-    const hd = zoneHandles(z, v);
+    const hd = zoneHandles(z, v, p.panel);
     ctx.save();
+    if (!hd.transformable) {
+      // secteur qui déborde : contour limité à la partie visible
+      tracePath(ctx, panelPolygon(p.panel).map((q) => toScreen(v, q)));
+      ctx.clip();
+    }
     ctx.setLineDash([6, 4]);
     tracePath(ctx, pp);
     ctx.strokeStyle = '#ff5b4c';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = hd.transformable ? 2 : 3;
     ctx.stroke();
     ctx.setLineDash([]);
+    if (hd.transformable) {
     ctx.beginPath();
     ctx.moveTo(...hd.top);
     ctx.lineTo(...hd.rot);
@@ -117,6 +130,7 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
       ctx.moveTo(x, y - 13);
       ctx.lineTo(x, y + 13);
       ctx.stroke();
+    }
     }
     ctx.restore();
   }
@@ -150,6 +164,16 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
     ctx.restore();
   }
 
+  if (o.caption) {
+    ctx.save();
+    ctx.font = '600 13px Archivo, system-ui, sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(o.caption, 14, 12);
+    ctx.restore();
+  }
+  if (o.noSun) return;
   const [sx, sy] = sunPosition(p.light, o.width, o.height);
   ctx.save();
   ctx.translate(sx, sy);
@@ -167,6 +191,46 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
   ctx.fillStyle = '#ffe7a3';
   ctx.fill();
   ctx.restore();
+}
+
+/** Zoom (1 = ajusté) et décalage en px appliqués à la vue ajustée. */
+export interface ZoomState {
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 40;
+
+export function zoomedView(p: Project, width: number, height: number, z: ZoomState): { view: ViewTransform; grid: number } {
+  const fit = fitView(p, width, height).view;
+  const scale = fit.scale * z.zoom;
+  const view = {
+    scale,
+    ox: width / 2 - (p.panel.w * scale) / 2 + z.panX,
+    oy: height / 2 - (p.panel.h * scale) / 2 + z.panY,
+  };
+  return { view, grid: gridStep(scale) };
+}
+
+/** Zoom autour d'un point écran : le mm sous le pointeur ne bouge pas. */
+export function zoomAt(p: Project, width: number, height: number, z: ZoomState, factor: number, at: Point): ZoomState {
+  const { view } = zoomedView(p, width, height, z);
+  const zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z.zoom * factor));
+  const mx = (at[0] - view.ox) / view.scale;
+  const my = (at[1] - view.oy) / view.scale;
+  const scale = (view.scale / z.zoom) * zoom;
+  return {
+    zoom,
+    panX: at[0] - mx * scale - (width / 2 - (p.panel.w * scale) / 2),
+    panY: at[1] - my * scale - (height / 2 - (p.panel.h * scale) / 2),
+  };
+}
+
+/** Pas de grille mm adaptatif du tapis. */
+export function gridStep(scale: number): number {
+  return [1, 5, 10, 50, 100, 500].find((g) => g * scale >= 10) ?? 1000;
 }
 
 /** Ajuste le panneau au canvas, et donne le pas de grille mm du tapis. */

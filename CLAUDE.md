@@ -38,9 +38,12 @@ src/app/
     geometry/         # fonctions pures : polygones, offset, point-in-polygon, aires, profils
     patterns/         # générateurs de motifs (soleil, bandes, damier, losanges), purs
     materials/        # palette des pailles, estimation matière (BOM)
-    export/           # SVG du plan 1:1, sérialisation/validation JSON
+    export/           # SVG du plan 1:1, plan en pages A4, sérialisation/validation JSON
+    import/           # SVG → zones : chemins, transformations, couleurs → pailles
   state/
     project.store.ts  # store à base de signals : état, sélection, undo/redo, persistance
+    projects.store.ts # plusieurs projets dans le navigateur (index + vignettes)
+    ui.store.ts       # état d'interface hors projet : pose guidée, comparaison, menus, zoom
   render/
     straw-2d.renderer.ts   # rendu paille sur canvas 2D (pur : reçoit ctx + état)
     plan-2d.renderer.ts    # plan de pose (hachures, numéros, pointillés des profils)
@@ -57,7 +60,9 @@ src/app/
     patterns-panel/   # générateurs de motifs
     layers-panel/     # liste des calques (ordre, sélection, alertes)
     bom-panel/        # estimation matière
-    export-panel/     # SVG, JSON, import, réinitialisation
+    export-panel/     # gabarit A4, SVG, JSON, import, réinitialisation
+    svg-import/       # boîte d'import d'un dessin SVG
+    projects/         # liste des projets
   shared/ui/          # boutons, segmented control, swatch, slider, number-field (mm)
 ```
 
@@ -202,8 +207,20 @@ Conventions UI :
 - Le soleil des motifs génère des polygones bien plus grands que le panneau : toujours borner les boucles de dessin à `bbox(zone) ∩ panneau`.
 - Une `CanvasPattern` est liée à son contexte : la recréer pour chaque canvas hors écran.
 - Grands panneaux (porte 830×2040) : beaucoup de bandes par frame. Couper les détails (coupes transversales, reflets de bande) quand une bande fait moins de 2 px à l'écran.
-- La sélection au clic ne doit pas attraper les secteurs qui débordent : ignorer les clics hors du panneau.
+- La sélection au clic ne doit pas attraper les secteurs qui débordent : ignorer les clics hors du panneau. Une forme qui déborde largement (`overflowsPanel`) n'a ni poignées de taille ni rôle de repère d'aimantation ; son contour de sélection est coupé au panneau.
+- Un `<select>` dont les `<option>` viennent d'un `@for` : marquer l'option avec `[selected]`, pas `[value]` sur le select (la valeur est posée avant que les options existent).
+
+## Ergonomie en place
+
+- **Zoom et déplacement** du canvas 2D : molette ou pincement (autour du pointeur), glisser le tapis, `+` `−` `0`, double-clic sur le tapis pour revenir à la vue ajustée. Le zoom revient à l'ajusté quand les dimensions du panneau changent.
+- **Gabarit A4** (`core/export/plan-tiles.ts`) : pages qui se recouvrent de 10 mm, repères A1, B1…, croix de calage dans les recouvrements, règle de 50 mm pour vérifier l'impression à 100 %, orientation choisie pour économiser du papier.
+- **Pose guidée** (plan de pose) : une zone visible à la fois dans l'ordre de pose, le reste voilé, avec paille, disposition, surface visible et mètres de bande.
+- **Menu contextuel** (clic droit) sur une forme ; **aide** (touche `?`) ; **conseil** à la première visite.
+- **Aperçus des motifs** avant de les ajouter ; **comparaison de deux lumières** côte à côte en rendu paille.
+- **Projets multiples** enregistrés dans le navigateur avec vignette.
+- **Mobile** : réglages dans un panneau qui glisse depuis le bas.
+- **Import SVG** (`core/import/`) : chaque forme remplie devient une zone `poly` dans l'ordre du document. Transformations, unités physiques (`width` en mm, cm, in…), couleurs → paille la plus proche (modifiable), simplification des contours. Le fichier est lu avec `DOMParser` et jamais inséré dans la page. Bouton dans la barre d'outils, dans Exporter, ou dépôt du fichier sur le tapis.
 
 ## Hors périmètre pour l'instant
 
-Comptes utilisateurs et backend, panneaux non rectangulaires, courbes de Bézier libres, import SVG (prévu ensuite : conversion d'un SVG en zones, voir le projet « SVG vers marqueterie »), rendu de la texture réelle des nœuds de paille.
+Comptes utilisateurs et backend, panneaux non rectangulaires, courbes de Bézier libres, trous et dégradés à l'import SVG (les sous-chemins évidés deviennent des zones pleines), rendu de la texture réelle des nœuds de paille.

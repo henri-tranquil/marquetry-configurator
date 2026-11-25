@@ -91,6 +91,8 @@ function drawCenterMark(ctx: Ctx2D, z: Zone, v: ViewTransform): void {
 export interface PlanOptions {
   view: ViewTransform;
   font: string;
+  /** Pose guidée : seule cette zone reste nette, le reste est voilé. */
+  focusZoneId?: number | null;
 }
 
 export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOptions): void {
@@ -165,11 +167,40 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
 
   for (const z of D.zones) if (hasFillCenter(z.zone)) drawCenterMark(ctx, z.zone, v);
 
+  const focus = o.focusZoneId != null ? D.zones.find((z) => z.zone.id === o.focusZoneId) : undefined;
+  if (focus) {
+    // voile sur tout le reste, zone en cours détourée
+    const fp = focus.poly.map((q) => toScreen(v, q));
+    ctx.save();
+    tracePath(ctx, PP);
+    ctx.clip();
+    ctx.beginPath();
+    for (const q of [PP, fp]) {
+      q.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    ctx.fill('evenodd');
+    // les zones posées après recouvrent la zone en cours : on les voile aussi
+    const idx = p.zones.indexOf(focus.zone);
+    for (const z of D.zones) {
+      if (p.zones.indexOf(z.zone) <= idx) continue;
+      tracePath(ctx, z.poly.map((q) => toScreen(v, q)));
+      ctx.fill();
+    }
+    tracePath(ctx, fp);
+    ctx.strokeStyle = '#e2483d';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // numéros de pose = index + 1, posés sur un point réellement visible
   ctx.font = o.font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const z of D.zones) {
+    if (focus && z !== focus) continue;
     const lp = labelPoint(D, z, p.panel);
     if (!lp) continue;
     const [x, y] = toScreen(v, lp);

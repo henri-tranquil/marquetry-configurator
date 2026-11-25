@@ -30,8 +30,13 @@ describe('aimantation', () => {
   });
 
   it('ignore les secteurs du soleil qui débordent', () => {
-    const sector = prepare([zone({ id: 3, type: 'poly', x: 123, pts: [[0, 0], [0.5, 0], [0, 0.5]] })]).zones;
+    const sector = prepare([zone({ id: 3, type: 'poly', x: 123, w: 3000, h: 3000, pts: [[0, 0], [0.5, 0], [0, 0.5]] })]).zones;
     expect(alignTargets(panel, sector).xs).not.toContain(123);
+  });
+
+  it('garde les formes libres (importées) même de type poly', () => {
+    const shape = prepare([zone({ id: 4, type: 'poly', x: 123, pts: [[-0.5, -0.5], [0.5, -0.5], [0, 0.5]] })]).zones;
+    expect(alignTargets(panel, shape).xs).toContain(123);
   });
 
   it("met l'origine de l'éventail pile au centre ou au milieu d'un bord", () => {

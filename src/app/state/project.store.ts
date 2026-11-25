@@ -1,6 +1,6 @@
 import { computed, effect, Injectable, signal } from '@angular/core';
 import { prepare } from '../core/geometry/geometry';
-import { estimateMaterials } from '../core/materials/bom';
+import { estimateMaterials, visibleAreas, ZoneUsage } from '../core/materials/bom';
 import { exampleProject, looksLikeProject, normalizeProject } from '../core/model/normalize';
 import {
   AddKind,
@@ -15,6 +15,13 @@ import { Project, STORAGE_KEY, Zone } from '../core/model/project';
 import { generatePattern, insertPattern, PatternOptions } from '../core/patterns/patterns';
 
 const HISTORY_MAX = 100;
+
+export interface LayingStep {
+  zone: Zone;
+  /** Numéro sur le plan de pose. */
+  number: number;
+  usage: ZoneUsage;
+}
 
 function loadInitial(): Project {
   try {
@@ -53,6 +60,14 @@ export class ProjectStore {
   readonly prepared = computed(() => prepare(this._project().zones));
   /** Calcul coûteux : suit l'état commité, pas chaque mouvement de souris. */
   readonly bom = computed(() => estimateMaterials(this._committed()));
+  /** Étapes de la pose guidée : zones visibles dans l'ordre de pose, avec leur surface. */
+  readonly layingSteps = computed<LayingStep[]>(() => {
+    const p = this._committed();
+    const areas = visibleAreas(p);
+    return p.zones
+      .map((zone, i) => ({ zone, number: i + 1, usage: areas.get(zone.id) }))
+      .filter((s): s is LayingStep => !s.zone.hole && !!s.usage && s.usage.area > 0);
+  });
   readonly canUndo = computed(() => this._history().undo > 0);
   readonly canRedo = computed(() => this._history().redo > 0);
 
@@ -190,6 +205,28 @@ export class ProjectStore {
       zones: insertPattern(p.zones, generatePattern(o, p.panel, nextId(p.zones)), replace),
     }));
     this.selectedId.set(null);
+  }
+
+  /** Ouvre un autre projet : historique remis à zéro. */
+  load(p: Project): void {
+    this.undoStack = [];
+    this.redoStack = [];
+    this._project.set(p);
+    this._committed.set(p);
+    this.selectedId.set(null);
+    this.syncHistory();
+  }
+
+  /** Ajoute des zones déjà construites (import SVG) devant les autres, et les sélectionne si une seule. */
+  addZones(zones: Zone[]): void {
+    if (!zones.length) return;
+    this.apply((p) => {
+      let id = nextId(p.zones);
+      const added = zones.map((z) => ({ ...z, id: id++ }));
+      return { ...p, zones: [...p.zones, ...added] };
+    });
+    const zs = this._committed().zones;
+    this.selectedId.set(zones.length === 1 ? (zs[zs.length - 1]?.id ?? null) : null);
   }
 
   clearZones(): void {

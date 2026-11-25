@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { tiledPlanHtml, tileLayout } from '../../core/export/plan-tiles';
 import { svgPlan } from '../../core/export/svg-plan';
 import { ProjectStore } from '../../state/project.store';
+import { UiStore } from '../../state/ui.store';
 
 type DialogMode = 'copy' | 'import';
 
@@ -9,15 +11,22 @@ type DialogMode = 'copy' | 'import';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="grid">
-      <button type="button" class="primary wide" (click)="download()">Télécharger le plan SVG (1:1)</button>
+      <button type="button" class="primary wide" (click)="printTiles()">Imprimer le gabarit · {{ pages() }}</button>
+      <button type="button" (click)="download()">Télécharger le SVG</button>
       <button type="button" (click)="copy('svg')">{{ flashed() === 'svg' ? 'Copié' : 'Copier le SVG' }}</button>
       <button type="button" (click)="copy('json')">{{ flashed() === 'json' ? 'Copié' : 'Copier le projet' }}</button>
-      <button type="button" (click)="openImport()">Importer</button>
+      <button type="button" (click)="openImport()">Coller un projet</button>
+      <button type="button" (click)="svgInput.click()">Importer un dessin SVG</button>
       <button type="button" class="warn" (click)="store.clearZones()">Tout effacer</button>
     </div>
+    <input #svgInput type="file" accept=".svg,image/svg+xml" hidden (change)="pickSvg(svgInput)" />
     <p class="note">
-      Le SVG est en millimètres : imprimé à 100 %, il sert de gabarit de pose. Le projet est aussi gardé dans ce navigateur.
+      Le gabarit s'imprime à l'échelle 1:1 sur des feuilles A4 qui se recouvrent, avec des croix de calage. Le SVG est en
+      millimètres pour un traceur ou un grand format.
     </p>
+    @if (popupBlocked()) {
+      <p class="note" role="alert">Le navigateur a bloqué la nouvelle fenêtre : autorise les fenêtres pour ce site, ou télécharge le SVG.</p>
+    }
 
     <dialog #dlg aria-labelledby="dlg-title" (close)="mode.set(null)">
       <!-- clic sur le fond : fermeture (Échap reste le chemin clavier natif du <dialog>) -->
@@ -48,6 +57,27 @@ export class ExportPanelComponent {
   protected readonly message = signal('');
   protected readonly text = signal('');
   protected readonly flashed = signal<'svg' | 'json' | null>(null);
+  protected readonly popupBlocked = signal(false);
+  private readonly ui = inject(UiStore);
+  protected readonly pages = computed(() => {
+    const L = tileLayout(this.store.committed().panel);
+    const n = L.tiles.length;
+    return `${n} page${n > 1 ? 's' : ''} A4`;
+  });
+
+  protected printTiles(): void {
+    const html = tiledPlanHtml(this.store.committed());
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    const w = window.open(url, '_blank');
+    this.popupBlocked.set(!w);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  protected pickSvg(input: HTMLInputElement): void {
+    const f = input.files?.[0];
+    if (f) this.ui.svgFile.set(f);
+    input.value = '';
+  }
   private flashTimer = 0;
 
   protected async copy(kind: 'svg' | 'json'): Promise<void> {

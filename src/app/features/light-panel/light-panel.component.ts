@@ -6,8 +6,10 @@ import { SegmentedComponent, SegOption } from '../../shared/ui/segmented.compone
 import { SliderFieldComponent } from '../../shared/ui/slider-field.component';
 import { SwatchesComponent } from '../../shared/ui/swatches.component';
 import { ProjectStore } from '../../state/project.store';
+import { UiStore } from '../../state/ui.store';
 
 const SWEEP_MS = 6000;
+const normAngle360 = (a: number) => ((Math.round(a) % 360) + 360) % 360;
 
 @Component({
   selector: 'app-light-panel',
@@ -28,7 +30,28 @@ const SWEEP_MS = 6000;
       <button type="button" [attr.aria-pressed]="sweeping()" (click)="toggleSweep()">
         {{ sweeping() ? 'Arrêter' : 'Faire tourner la lumière' }}
       </button>
+      @if (p().view === 'rendu') {
+        <button type="button" [class.on]="ui.compare()" [attr.aria-pressed]="ui.compare()" (click)="ui.compare.set(!ui.compare())">
+          Comparer deux lumières
+        </button>
+      }
     </div>
+    @if (ui.compare() && p().view === 'rendu') {
+      <app-slider-field
+        label="Lumière B (à droite)"
+        [value]="ui.lightB()"
+        [display]="round(ui.lightB()) + '°'"
+        [min]="0"
+        [max]="359"
+        [step]="1"
+        (live)="ui.lightB.set($event)"
+      />
+      <div class="row">
+        @for (pr of lightPresets(); track pr.label) {
+          <button type="button" [title]="pr.title" (click)="ui.lightB.set(pr.a)">{{ pr.label }}</button>
+        }
+      </div>
+    }
     <app-slider-field
       label="Contraste des reflets"
       [value]="p().contrast"
@@ -92,6 +115,16 @@ const SWEEP_MS = 6000;
   `,
 })
 export class LightPanelComponent {
+  protected readonly ui = inject(UiStore);
+  /** Lumière B rapportée à la première : opposée ou en travers. */
+  protected readonly lightPresets = computed(() => {
+    const a = this.p().light;
+    return [
+      { label: 'Opposée', title: 'Lumière venant de l’autre côté', a: normAngle360(a + 180) },
+      { label: '+ 90°', title: 'Lumière tournée d’un quart de tour', a: normAngle360(a + 90) },
+      { label: '− 90°', title: 'Lumière tournée d’un quart de tour dans l’autre sens', a: normAngle360(a - 90) },
+    ];
+  });
   protected readonly store = inject(ProjectStore);
   protected readonly p = this.store.project;
   protected readonly is3d = computed(() => this.p().view === '3d');

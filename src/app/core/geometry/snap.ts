@@ -3,7 +3,7 @@
  * Tout est en mm ; la tolérance vient de l'écran (quelques px convertis en mm).
  */
 import { Point, Project, Zone } from '../model/project';
-import { BBox, PreparedZone, RAD } from './geometry';
+import { BBox, overflowsPanel, PreparedZone, RAD } from './geometry';
 
 export interface SnapGuides {
   /** Ligne verticale d'alignement (x en mm). */
@@ -19,12 +19,12 @@ export interface Snapped<T> {
   guides: SnapGuides;
 }
 
-/** Repères d'alignement : bords et milieux du panneau et des autres formes (secteurs exclus, ils débordent). */
+/** Repères d'alignement : bords et milieux du panneau et des autres formes (celles qui débordent sont exclues). */
 export function alignTargets(panel: Project['panel'], others: readonly PreparedZone[]): { xs: number[]; ys: number[] } {
   const xs = [0, panel.w / 2, panel.w];
   const ys = [0, panel.h / 2, panel.h];
   for (const o of others) {
-    if (o.zone.type === 'poly') continue;
+    if (overflowsPanel(o.box, panel)) continue;
     const [x0, y0, x1, y1] = o.box;
     xs.push(x0, o.zone.x, x1);
     ys.push(y0, o.zone.y, y1);

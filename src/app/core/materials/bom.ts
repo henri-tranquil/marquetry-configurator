@@ -31,6 +31,32 @@ export function stripMeters(area: number, sw: number): number {
   return (area / sw / 1000) * WASTE;
 }
 
+export interface ZoneUsage {
+  /** Surface réellement visible (mm²). */
+  area: number;
+  /** Mètres de bande, chute comprise. */
+  meters: number;
+}
+
+/** Surface visible de chaque zone (échantillonnage plus fin que l'estimation globale). */
+export function visibleAreas(p: Project, cells = 200): Map<number, ZoneUsage> {
+  const { w, h } = p.panel;
+  const st = Math.max(w, h) / cells;
+  const D = prepare(p.zones);
+  const counts = new Map<number, number>();
+  for (let y = st / 2; y < h; y += st)
+    for (let x = st / 2; x < w; x += st) {
+      const t = topAt(D, x, y);
+      if (t && t !== 'hole') counts.set(t.id, (counts.get(t.id) ?? 0) + 1);
+    }
+  const out = new Map<number, ZoneUsage>();
+  for (const [id, n] of counts) {
+    const area = n * st * st;
+    out.set(id, { area, meters: stripMeters(area, p.sw) });
+  }
+  return out;
+}
+
 /** Estimation matière par échantillonnage (~120 cases dans la plus grande dimension). */
 export function estimateMaterials(p: Project): Bom {
   const { w, h } = p.panel;

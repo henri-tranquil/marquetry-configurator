@@ -1,5 +1,5 @@
 import { normalizeProject } from '../model/normalize';
-import { estimateMaterials, stripMeters } from './bom';
+import { estimateMaterials, stripMeters, visibleAreas } from './bom';
 
 describe('estimation matière', () => {
   it('mètres de bande = surface / sw × 1,15', () => {
@@ -33,5 +33,20 @@ describe('estimation matière', () => {
     const p = normalizeProject({ panel: { w: 100, h: 100 }, thick: 18, edge: { type: 'arrondi', size: 4 } });
     const b = estimateMaterials(p);
     expect(b.profileArea).toBeCloseTo(400 * ((Math.PI * 4) / 2 - 4));
+  });
+});
+
+describe('surface visible par zone', () => {
+  it('une zone recouverte en partie ne compte que sa partie visible', () => {
+    const p = normalizeProject({
+      panel: { w: 100, h: 100 },
+      zones: [
+        { type: 'rect', x: 50, y: 50, w: 100, h: 100, color: 'miel' },
+        { type: 'rect', x: 25, y: 50, w: 50, h: 100, color: 'ebene' },
+      ],
+    });
+    const a = visibleAreas(p);
+    expect(a.get(1)?.area).toBeCloseTo(5000, -2);
+    expect(a.get(2)?.area).toBeCloseTo(5000, -2);
   });
 });
