@@ -18,12 +18,17 @@
       <span class="unit">mm</span>
     </div>
     <div class="shape" role="radiogroup" aria-label="Forme du panneau">
-      <button type="button" role="radio" title="Panneau rectangulaire" aria-label="Rectangulaire" [class.on]="!p().panel.round" [attr.aria-checked]="!p().panel.round" (click)="store.setRound(false)">
+      <button type="button" role="radio" title="Panneau rectangulaire" aria-label="Rectangulaire" [class.on]="!p().panel.round && !p().panel.outline" [attr.aria-checked]="!p().panel.round && !p().panel.outline" (click)="store.setRound(false)">
         <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" /></svg>
       </button>
       <button type="button" role="radio" title="Panneau rond (ovale si largeur ≠ hauteur)" aria-label="Rond" [class.on]="p().panel.round" [attr.aria-checked]="!!p().panel.round" (click)="store.setRound(true)">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.8" /></svg>
       </button>
+      @if (p().panel.outline) {
+        <button type="button" role="radio" class="on" aria-checked="true" title="Contour de la plaque importée : choisis rectangle ou rond pour l'abandonner" aria-label="Contour importé">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 11c-1-3 1-7 5-7 2 0 2.5 1.5 4 1.5S14 7 13 9s-3 4-6 4-3.5-1-4-2z" /></svg>
+        </button>
+      }
     </div>
   </div>
   <app-segmented label="Vue" [options]="views" [value]="p().view" (picked)="store.setView($event)" />

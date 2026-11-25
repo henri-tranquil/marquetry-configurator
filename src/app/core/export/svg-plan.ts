@@ -2,6 +2,7 @@ import {
   edgeInfo,
   labelPoint,
   offsetPolygon,
+  panelPolygon,
   prepare,
   profileBands,
 } from '../geometry/geometry';
@@ -21,7 +22,9 @@ export function svgPlan(p: Project): string {
   const sw = p.sw * 1.6;
   const D = prepare(p.zones);
   const fs = Math.max(4, Math.min(w, h) / 45);
-  const outline = p.panel.round
+  const outline = p.panel.outline
+    ? `<path d="M${panelPolygon(p.panel).map(([x, y]) => `${f2(x)} ${f2(y)}`).join('L')}Z"`
+    : p.panel.round
     ? `<ellipse cx="${w / 2}" cy="${h / 2}" rx="${w / 2}" ry="${h / 2}"`
     : `<rect width="${w}" height="${h}"`;
   let defs = `<clipPath id="pc">${outline}/></clipPath>`;

@@ -2,10 +2,10 @@
  * Zones construites à la main à partir des cases d'un dessin au trait → zones du projet.
  * Une zone « plaque » donne le panneau (rond si son contour est une ellipse).
  */
-import { bbox, BBox } from '../geometry/geometry';
-import { Point, StrawColor, Zone } from '../model/project';
+import { bbox, BBox, signedArea } from '../geometry/geometry';
+import { Panel, Point, StrawColor, Zone } from '../model/project';
 import { polyZone } from '../patterns/patterns';
-import { CellGrid, isEllipse, shapeOutline, TracedShape, traceRegion } from './trace-cells';
+import { CellGrid, plateToPanel, shapeOutline, TracedShape, traceRegion } from './trace-cells';
 
 export type TraceRole = 'plaque' | 'motif' | 'trou';
 
@@ -36,7 +36,7 @@ export interface TracePlanOptions {
 
 export interface TracePlan {
   zones: Zone[];
-  panel: { w: number; h: number; round?: boolean } | null;
+  panel: Panel | null;
 }
 
 /** Formes tracées de chaque zone (unités SVG), calculées une fois. */
@@ -85,8 +85,16 @@ export function planTrace(g: CellGrid, zones: readonly TraceZone[], o: TracePlan
     const ps = shapes.get(plate.id) ?? [];
     const w = Math.max(1, Math.round((ref[2] - ref[0]) * k));
     const h = Math.max(1, Math.round((ref[3] - ref[1]) * k));
-    const round = ps.length === 1 && ps[0]!.holes.length === 0 && isEllipse(ps[0]!.pts);
-    panel = round ? { w, h, round: true } : { w, h };
+    // plaque en plusieurs morceaux : on garde le plus grand
+    const main = ps.reduce<TracedShape | null>((m, s) => (!m || Math.abs(signedArea(s.pts)) > Math.abs(signedArea(m.pts)) ? s : m), null);
+    if (main) {
+      panel = plateToPanel(map(main.pts), w, h);
+      main.holes.forEach((hh, i) => {
+        const pts = shapeOutline({ pts: map(hh), holes: [] }, o.maxPoints);
+        if (pts.length < 3) return;
+        out.push({ id: startId + out.length, ...polyZone(pts), name: `Creux de la plaque ${i + 1}`, color: 'naturel', angle: o.angle, hole: true, edge: { type: 'droit', size: 2 } });
+      });
+    } else panel = { w, h };
   }
   return { zones: out, panel };
 }

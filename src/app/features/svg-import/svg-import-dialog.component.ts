@@ -129,7 +129,8 @@ interface ShapeRow {
             </div>
             @if (hasPlate()) {
               <p class="note">
-                La plaque devient le panneau en médium nu : {{ planPanel()?.round ? 'rond, Ø ' + fmt(planPanel()?.w ?? 0) : fmt(planPanel()?.w ?? 0) + ' × ' + fmt(planPanel()?.h ?? 0) }} mm.
+                La plaque devient le panneau en médium nu{{ planPanel()?.outline ? ', découpé à son contour' : '' }} :
+                {{ planPanel()?.round ? 'rond, Ø ' + fmt(planPanel()?.w ?? 0) : fmt(planPanel()?.w ?? 0) + ' × ' + fmt(planPanel()?.h ?? 0) }} mm.
               </p>
             }
             <label>

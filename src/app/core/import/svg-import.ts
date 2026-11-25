@@ -4,9 +4,9 @@
  * Ne dépend que d'une interface d'élément minimale (le DOM du navigateur la satisfait).
  */
 import { bbox, bridgeHoles, pointInPolygon, signedArea } from '../geometry/geometry';
-import { strawInfo, PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
+import { Panel, strawInfo, PALETTE, Point, STRAW_COLORS, StrawColor, Zone } from '../model/project';
 import { polyZone } from '../patterns/patterns';
-import { isEllipse } from './trace-cells';
+import { plateToPanel } from './trace-cells';
 import { apply, IDENTITY, Matrix, multiply, numbers, parsePath, parseTransform, simplify } from './svg-path';
 
 /** Ce dont on a besoin d'un élément XML. */
@@ -352,7 +352,7 @@ export interface SvgImportOptions {
 export interface ImportPlan {
   zones: Zone[];
   /** Dimensions données par la plaque, si une forme a ce rôle. */
-  panel: { w: number; h: number; round?: boolean } | null;
+  panel: Panel | null;
   /** Contour de chaque forme une fois posée (mm, non simplifié), pour l'aperçu et la sélection. */
   outlines: Point[][];
 }
@@ -399,7 +399,13 @@ export function planImport(r: SvgReadResult, o: SvgImportOptions, startId: numbe
   if (plate) {
     const w = Math.max(1, Math.round((ref[2] - ref[0]) * k));
     const h = Math.max(1, Math.round((ref[3] - ref[1]) * k));
-    panel = !plate.holes.length && isEllipse(plate.pts) ? { w, h, round: true } : { w, h };
+    panel = plateToPanel(map(plate.pts), w, h);
+    // les creux de la plaque sont des découpes
+    plate.holes.forEach((hh, i) => {
+      const pts = outline(map(hh), [], o.maxPoints);
+      if (pts.length < 3) return;
+      zones.push({ id: startId + zones.length, ...polyZone(pts), name: `Creux de la plaque ${i + 1}`, color: 'naturel', angle: o.angle, hole: true, edge: { type: 'droit', size: 2 } });
+    });
   }
   return { zones, panel, outlines };
 }

@@ -126,7 +126,8 @@ export class EditorComponent {
     const pr = this.presets[Number(sel.value)];
     if (pr) {
       this.store.setPanelSize(pr.w, pr.h);
-      if (!!pr.round !== !!this.p().panel.round) this.store.setRound(!!pr.round);
+      const cur = this.p().panel;
+      if (!!pr.round !== !!cur.round || cur.outline) this.store.setRound(!!pr.round);
     }
     sel.value = '';
   }

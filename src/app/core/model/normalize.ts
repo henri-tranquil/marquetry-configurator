@@ -96,6 +96,18 @@ function normalizeZone(v: unknown, id: number): Zone | null {
   return t;
 }
 
+/** Contour libre de la plaque : 3 à 600 points dans [0, 1], sinon ignoré. */
+function panelOutline(v: unknown): { outline?: Point[] } {
+  if (!Array.isArray(v) || v.length < 3 || v.length > 600) return {};
+  const pts: Point[] = [];
+  for (const q of v) {
+    if (!Array.isArray(q) || typeof q[0] !== 'number' || typeof q[1] !== 'number') return {};
+    if (!Number.isFinite(q[0]) || !Number.isFinite(q[1])) return {};
+    pts.push([Math.min(1, Math.max(0, q[0])), Math.min(1, Math.max(0, q[1]))]);
+  }
+  return { outline: pts };
+}
+
 /**
  * Toute donnée entrante (localStorage, import) passe ici : nombres bornés,
  * couleurs et types inconnus remplacés, ids réattribués à partir de 1.
@@ -111,6 +123,7 @@ export function normalizeProject(input: unknown): Project {
       w: num(panel?.['w'], 400, ...L.panel),
       h: num(panel?.['h'], 700, ...L.panel),
       ...(panel?.['round'] === true ? { round: true } : {}),
+      ...panelOutline(panel?.['outline']),
     },
     bg: {
       mode: bg?.['mode'] === 'paille' ? 'paille' : 'bois',

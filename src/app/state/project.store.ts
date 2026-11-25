@@ -202,9 +202,9 @@ export class ProjectStore {
     this.apply((p) => resizePanel(p, w, h));
   }
 
-  /** Panneau rond (ovale inscrit) ou rectangulaire. */
+  /** Panneau rond (ovale inscrit) ou rectangulaire ; quitte le contour libre d'une plaque importée. */
   setRound(round: boolean): void {
-    this.apply((p) => ({ ...p, panel: round ? { ...p.panel, round: true } : { w: p.panel.w, h: p.panel.h } }));
+    this.apply((p) => ({ ...p, panel: round ? { w: p.panel.w, h: p.panel.h, round: true } : { w: p.panel.w, h: p.panel.h } }));
   }
 
   setView(view: Project['view']): void {

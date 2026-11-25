@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { pointInPolygon, signedArea } from '../geometry/geometry';
+import { insidePanel, panelPolygon, pointInPolygon, signedArea } from '../geometry/geometry';
 import { Point } from '../model/project';
-import { buildCells, cellAt, isEllipse, shapeOutline, traceRegion } from './trace-cells';
+import { buildCells, cellAt, isEllipse, plateToPanel, shapeOutline, traceRegion } from './trace-cells';
 import { planTrace } from './trace-plan';
 
 const circle = (cx: number, cy: number, r: number, n = 96): Point[] =>
@@ -69,5 +69,34 @@ describe('plan d\'import depuis le tracé', () => {
     expect(plan.zones[0]!.x).toBeCloseTo(50, 0);
     expect(plan.zones[0]!.w).toBeCloseTo(100 / 3, 0);
     expect(plan.zones[1]!.hole).toBe(true);
+  });
+});
+
+describe('plaque de forme libre', () => {
+  // plaque en « L » : ni rectangle ni ellipse
+  const L: Point[] = [[0, 0], [60, 0], [60, 40], [100, 40], [100, 100], [0, 100]];
+
+  it('garde son contour, normalisé dans la boîte', () => {
+    const panel = plateToPanel(L, 100, 100);
+    expect(panel.round).toBeUndefined();
+    expect(panel.outline).toHaveLength(6);
+    expect(insidePanel(panel, 80, 20)).toBe(false);
+    expect(insidePanel(panel, 30, 20)).toBe(true);
+    expect(Math.abs(signedArea(panelPolygon(panel)))).toBeCloseTo(100 * 100 - 40 * 40, 3);
+    expect(signedArea(panelPolygon(panel))).toBeGreaterThan(0);
+  });
+
+  it('un rectangle reste un rectangle, un disque devient rond', () => {
+    expect(plateToPanel([[0, 0], [100, 0], [100, 50], [0, 50]], 100, 50)).toEqual({ w: 100, h: 50 });
+    expect(plateToPanel(circle(50, 50, 50), 100, 100)).toEqual({ w: 100, h: 100, round: true });
+  });
+
+  it('une plaque d\'oiseau tracée donne un panneau à son contour, ses creux deviennent des trous', () => {
+    const lines: Point[][] = [circle(40, 60, 30), circle(75, 35, 18), circle(40, 60, 8)];
+    const g = buildCells(lines, { maxSide: 400 });
+    const inner = Array.from({ length: g.count }, (_, i) => i + 1).filter((c) => !g.outside.has(c) && c !== cellAt(g, [40, 60]));
+    const plan = planTrace(g, [{ id: 1, name: 'Plaque', role: 'plaque', color: 'naturel', cells: inner }], { width: 100, x: 0, y: 0, angle: 90, maxPoints: 120 }, 1);
+    expect(plan.panel?.outline?.length).toBeGreaterThan(10);
+    expect(plan.zones.filter((z) => z.hole)).toHaveLength(1);
   });
 });

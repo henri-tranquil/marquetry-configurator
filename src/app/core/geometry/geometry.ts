@@ -151,9 +151,16 @@ export function pickAt(
   return null;
 }
 
+const outlineCache = new WeakMap<Project['panel'], Point[]>();
+
 /** Le point (mm) est-il sur le panneau ? */
 export function insidePanel(panel: Project['panel'], x: number, y: number): boolean {
   if (x < 0 || y < 0 || x > panel.w || y > panel.h) return false;
+  if (panel.outline) {
+    let pp = outlineCache.get(panel);
+    if (!pp) outlineCache.set(panel, (pp = panelPolygon(panel)));
+    return pointInPolygon(pp, x, y);
+  }
   if (!panel.round) return true;
   const dx = (x - panel.w / 2) / (panel.w / 2);
   const dy = (y - panel.h / 2) / (panel.h / 2);
@@ -239,8 +246,15 @@ export function isNarrow(z: Zone, sw: number): boolean {
   return !z.hole && z.type !== 'poly' && Math.min(z.w, z.h) < 3 * sw;
 }
 
-/** Contour du panneau : rectangle, ou ellipse inscrite (96 points) pour un panneau rond. */
+/**
+ * Contour du panneau : rectangle, ellipse inscrite (96 points) pour un panneau rond,
+ * ou contour libre d'une plaque importée. Toujours dans le même sens que le rectangle.
+ */
 export function panelPolygon(panel: Project['panel']): Point[] {
+  if (panel.outline) {
+    const pts = panel.outline.map(([x, y]): Point => [x * panel.w, y * panel.h]);
+    return signedArea(pts) < 0 ? pts.reverse() : pts;
+  }
   if (panel.round) {
     const rx = panel.w / 2;
     const ry = panel.h / 2;

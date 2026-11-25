@@ -1,4 +1,4 @@
-import { arcLength, insidePanel, perimeter, prepare, profileRadius, topAt } from '../geometry/geometry';
+import { arcLength, insidePanel, panelPolygon, perimeter, prepare, profileRadius, signedArea, topAt } from '../geometry/geometry';
 import { strawInfo, Project, StrawColor, WOOD_HEX } from '../model/project';
 
 /** Chute ajoutée aux longueurs de bande. */
@@ -78,7 +78,7 @@ export function estimateMaterials(p: Project): Bom {
       const k = t ? t.color : p.bg.mode === 'paille' ? p.bg.color : 'bois';
       acc.set(k, (acc.get(k) ?? 0) + 1);
     }
-  const panelArea = p.panel.round ? (Math.PI * w * h) / 4 : w * h;
+  const panelArea = p.panel.outline ? Math.abs(signedArea(panelPolygon(p.panel))) : p.panel.round ? (Math.PI * w * h) / 4 : w * h;
   const cell = total ? panelArea / total : 0;
   const rows: BomRow[] = [...acc.entries()]
     .sort((a, b) => b[1] - a[1])

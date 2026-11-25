@@ -70,9 +70,19 @@ export interface Zone {
   fill?: StrawFill;
 }
 
+/**
+ * Plaque. Rectangle w × h par défaut ; round = disque ou ovale inscrit ;
+ * outline = contour libre (plaque importée), points normalisés dans [0, 1] × [0, 1] de la boîte w × h.
+ */
+export interface Panel {
+  w: number;
+  h: number;
+  round?: boolean;
+  outline?: Point[];
+}
+
 export interface Project {
-  /** round : panneau rond ou ovale inscrit dans w × h (sous-bock rond). */
-  panel: { w: number; h: number; round?: boolean };
+  panel: Panel;
   thick: number;
   edge: EdgeProfile;
   bg: { mode: BgMode; color: StrawColor; angle: number };

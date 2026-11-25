@@ -5,7 +5,7 @@
  * Fonctions pures, sans DOM.
  */
 import { bbox, BBox, bridgeHoles, pointInPolygon, signedArea } from '../geometry/geometry';
-import { Point } from '../model/project';
+import { Panel, Point } from '../model/project';
 import { simplify } from './svg-path';
 
 export interface CellGrid {
@@ -300,4 +300,19 @@ export function isEllipse(pts: readonly Point[]): boolean {
   const cx = x0 + rx;
   const cy = y0 + ry;
   return pts.every(([x, y]) => Math.abs(Math.hypot((x - cx) / rx, (y - cy) / ry) - 1) < 0.06);
+}
+
+/**
+ * Contour de plaque (mm, déjà calé en 0, 0) → panneau : rond s'il est elliptique, rectangle s'il remplit
+ * sa boîte, contour libre sinon.
+ */
+export function plateToPanel(pts: readonly Point[], w: number, h: number): Panel {
+  if (isEllipse(pts)) return { w, h, round: true };
+  const [x0, y0, x1, y1] = bbox(pts);
+  const bw = Math.max(1e-9, x1 - x0);
+  const bh = Math.max(1e-9, y1 - y0);
+  if (Math.abs(signedArea(pts)) / (bw * bh) > 0.985) return { w, h };
+  const s = simplify([...pts], 240);
+  const outline = s.map(([x, y]): Point => [Math.round(((x - x0) / bw) * 1e5) / 1e5, Math.round(((y - y0) / bh) * 1e5) / 1e5]);
+  return { w, h, outline };
 }
