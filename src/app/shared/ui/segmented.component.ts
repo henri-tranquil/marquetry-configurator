@@ -23,7 +23,7 @@ export interface SegOption<T> {
   `,
   styles: `
     :host { display: inline-flex; }
-    button { border-radius: 0; }
+    button { border-radius: 0; padding: 0 10px; }
     button:first-child { border-radius: 8px 0 0 8px; }
     button + button { margin-left: -1px; }
     button:last-child { border-radius: 0 8px 8px 0; }

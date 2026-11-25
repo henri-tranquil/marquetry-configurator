@@ -5,6 +5,7 @@ import {
   prepare,
   profileBands,
 } from '../geometry/geometry';
+import { fillCenter, hasFillCenter, zoneFillPieces } from '../geometry/fill';
 import { PALETTE, Point, Project } from '../model/project';
 
 const f2 = (v: number) => v.toFixed(2);
@@ -31,15 +32,49 @@ export function svgPlan(p: Project): string {
     body += `<rect width="${w}" height="${h}" fill="url(#bg)"/>`;
   } else body += `<rect width="${w}" height="${h}" fill="#efe6d6"/>`;
 
+  let marks = '';
   D.zones.forEach((o, i) => {
-    defs += pat(`p${i}`, o.zone.angle, PALETTE[o.zone.color].hex);
-    body += `<polygon points="${pts(o.poly)}" fill="url(#p${i})" stroke="#1d1d1d" stroke-width="0.4"/>`;
+    const z = o.zone;
+    const hex = PALETTE[z.color].hex;
+    const pieces = zoneFillPieces(z, o.poly, p.panel, p.sw, 0);
+    if (!z.fill || z.fill.type === 'parallele') {
+      defs += pat(`p${i}`, z.angle, hex);
+      body += `<polygon points="${pts(o.poly)}" fill="url(#p${i})" stroke="#1d1d1d" stroke-width="0.4"/>`;
+      return;
+    }
+    defs += `<clipPath id="c${i}"><polygon points="${pts(o.poly)}"/></clipPath>`;
+    let inner = '';
+    const angles = new Map<number, string>();
+    for (const pc of pieces) {
+      if (pc.solid) {
+        // une ligne médiane tous les 2 brins (écart ≈ celui des hachures parallèles)
+        if (pc.lane % 2 === 0) inner += `<polyline points="${pts(pc.axis)}" fill="none" stroke="${hex}" stroke-width="${f2(p.sw * 0.29)}"/>`;
+        continue;
+      }
+      let id = angles.get(pc.angle);
+      if (!id) {
+        id = `p${i}_${angles.size}`;
+        angles.set(pc.angle, id);
+        defs += pat(id, pc.angle, hex);
+      }
+      inner += `<polygon points="${pts(pc.poly)}" fill="url(#${id})"/>`;
+    }
+    body +=
+      `<polygon points="${pts(o.poly)}" fill="#fff"/><g clip-path="url(#c${i})">${inner}</g>` +
+      `<polygon points="${pts(o.poly)}" fill="none" stroke="#1d1d1d" stroke-width="0.4"/>`;
+    if (hasFillCenter(z)) {
+      const [cx, cy] = fillCenter(z);
+      marks +=
+        `<circle cx="${f2(cx)}" cy="${f2(cy)}" r="2" fill="none" stroke="#1d1d1d" stroke-width="0.3"/>` +
+        `<path d="M${f2(cx - 4)} ${f2(cy)}h8M${f2(cx)} ${f2(cy - 4)}v8" stroke="#1d1d1d" stroke-width="0.3"/>`;
+    }
   });
   for (const o of D.holes)
     body += `<polygon points="${pts(o.poly)}" fill="#fff" stroke="#e2483d" stroke-width="0.5" stroke-dasharray="2 1.5"/>`;
   for (const b of profileBands(p, D))
     body += `<polygon points="${pts(offsetPolygon(b.poly, edgeInfo(b.poly, b.matIn), b.r))}" fill="none" stroke="#777" stroke-width="0.3" stroke-dasharray="1.5 1.5"/>`;
 
+  body += marks;
   let labels = '';
   for (const o of D.zones) {
     const lp = labelPoint(D, o, p.panel);

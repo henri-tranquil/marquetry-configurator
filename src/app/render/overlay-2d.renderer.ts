@@ -1,14 +1,22 @@
 /** Surimpressions de l'éditeur : cotes, sélection et poignées, soleil d'azimut. */
+import { fillCenter, hasFillCenter } from '../core/geometry/fill';
 import { RAD, zonePolygon } from '../core/geometry/geometry';
+import { SnapGuides } from '../core/geometry/snap';
 import { Point, Project, Zone } from '../core/model/project';
 import { Ctx2D, toScreen, tracePath, ViewTransform } from './straw-2d.renderer';
 
 export interface Handles {
-  /** Poignée de taille (coin bas droit). */
+  /** Poignée de taille (coin bas droit) : proportions gardées. */
   size: Point;
+  /** Milieu du côté droit : largeur seule (absente si la forme est trop petite à l'écran). */
+  sideW: Point | null;
+  /** Milieu du côté bas : hauteur seule. */
+  sideH: Point | null;
   /** Poignée de rotation, au-dessus du bord haut. */
   rot: Point;
   top: Point;
+  /** Point d'origine de l'éventail. */
+  center: Point | null;
 }
 
 export function zoneHandles(z: Zone, v: ViewTransform): Handles {
@@ -17,7 +25,16 @@ export function zoneHandles(z: Zone, v: ViewTransform): Handles {
   const s = Math.sin(r);
   const L = (a: number, b: number) => toScreen(v, [z.x + a * z.w * c - b * z.h * s, z.y + a * z.w * s + b * z.h * c]);
   const top = L(0, -0.5);
-  return { size: L(0.5, 0.5), rot: [top[0] + s * 26, top[1] - c * 26], top };
+  // sous ~56 px, les poignées de côté se marcheraient dessus avec celle du coin
+  const roomy = Math.min(z.w, z.h) * v.scale >= 56;
+  return {
+    size: L(0.5, 0.5),
+    sideW: roomy ? L(0.5, 0) : null,
+    sideH: roomy ? L(0, 0.5) : null,
+    rot: [top[0] + s * 26, top[1] - c * 26],
+    top,
+    center: hasFillCenter(z) ? toScreen(v, fillCenter(z)) : null,
+  };
 }
 
 /** Position du soleil sur le bord du tapis, selon l'azimut. */
@@ -39,6 +56,8 @@ export interface OverlayOptions {
   width: number;
   height: number;
   selected: Zone | null;
+  /** Repères d'aimantation actifs. */
+  guides?: SnapGuides;
   font: string;
   format: (v: number) => string;
 }
@@ -75,6 +94,7 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
     ctx.stroke();
     ctx.beginPath();
     ctx.rect(hd.size[0] - 6, hd.size[1] - 6, 12, 12);
+    for (const sd of [hd.sideW, hd.sideH]) if (sd) ctx.rect(sd[0] - 4.5, sd[1] - 4.5, 9, 9);
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.strokeStyle = '#e2483d';
@@ -83,6 +103,50 @@ export function drawOverlay(ctx: Ctx2D, p: Project, o: OverlayOptions): void {
     ctx.arc(hd.rot[0], hd.rot[1], 7, 0, 2 * Math.PI);
     ctx.fill();
     ctx.stroke();
+    if (hd.center) {
+      // origine de l'éventail : cible déplaçable
+      const [x, y] = hd.center;
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 13, y);
+      ctx.lineTo(x + 13, y);
+      ctx.moveTo(x, y - 13);
+      ctx.lineTo(x, y + 13);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const g = o.guides;
+  if (g && (g.x !== undefined || g.y !== undefined || g.point)) {
+    ctx.save();
+    ctx.strokeStyle = '#ff5b4c';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (g.x !== undefined) {
+      const x = v.ox + g.x * v.scale;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, o.height);
+    }
+    if (g.y !== undefined) {
+      const y = v.oy + g.y * v.scale;
+      ctx.moveTo(0, y);
+      ctx.lineTo(o.width, y);
+    }
+    ctx.stroke();
+    if (g.point) {
+      const [x, y] = toScreen(v, g.point);
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

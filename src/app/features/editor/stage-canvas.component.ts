@@ -9,22 +9,44 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { pickAt, RAD, round05 } from '../../core/geometry/geometry';
-import { Point, Zone } from '../../core/model/project';
+import { toZoneLocal } from '../../core/geometry/fill';
+import { BBox, clamp, pickAt, RAD, round05 } from '../../core/geometry/geometry';
+import {
+  alignTargets,
+  panelKeyPoints,
+  snapLength,
+  snapMove,
+  snapPoint,
+  SnapGuides,
+  zoneKeyPoints,
+} from '../../core/geometry/snap';
+import { defaultFill, LIMITS, Point, Zone } from '../../core/model/project';
 import { drawPlanPanel } from '../../render/plan-2d.renderer';
 import { azimuthAt, drawOverlay, fitView, sunPosition, zoneHandles } from '../../render/overlay-2d.renderer';
 import { createFiberTexture, drawStrawPanel, toMM, ViewTransform } from '../../render/straw-2d.renderer';
 import { fmt } from '../../shared/format';
 import { ProjectStore } from '../../state/project.store';
 
+interface Targets {
+  xs: number[];
+  ys: number[];
+}
+
 type Drag =
   | { k: 'light' }
-  | { k: 'move'; id: number; dx: number; dy: number }
-  | { k: 'size'; id: number }
-  | { k: 'rot'; id: number };
+  | { k: 'move'; id: number; dx: number; dy: number; x0: number; y0: number; box0: BBox; targets: Targets }
+  /** Coin : proportions gardées (Maj = libre). */
+  | { k: 'size'; id: number; ratio: number; sizes: number[] }
+  /** Milieu d'un côté : une seule dimension. */
+  | { k: 'sizeW'; id: number; sizes: number[] }
+  | { k: 'sizeH'; id: number; sizes: number[] }
+  | { k: 'rot'; id: number }
+  | { k: 'center'; id: number; points: Point[]; targets: Targets };
 
 const HANDLE_HIT = 22; // rayon de capture des poignées : cible ≥ 44 px
 const SUN_HIT = 22;
+/** Distance d'aimantation, en px écran. */
+const SNAP_PX = 8;
 
 /** Canvas 2D de l'éditeur : rendu paille ou plan de pose, sélection et poignées. */
 @Component({
@@ -61,6 +83,7 @@ export class StageCanvasComponent {
   private dpr = 1;
   private raf = 0;
   private drag: Drag | null = null;
+  private guides: SnapGuides = {};
 
   constructor() {
     effect(() => {
@@ -125,6 +148,7 @@ export class StageCanvasComponent {
       width: this.width,
       height: this.height,
       selected: this.store.selected(),
+      guides: this.guides,
       font: '500 13px Archivo, system-ui, sans-serif',
       format: (v) => fmt(v),
     });
@@ -146,6 +170,20 @@ export class StageCanvasComponent {
     return pickAt(this.store.prepared(), this.store.project().panel, x, y);
   }
 
+  /** Repères d'aimantation tirés des autres formes et du panneau. */
+  private targetsExcept(id: number): Targets {
+    const D = this.store.prepared();
+    return alignTargets(this.store.project().panel, [...D.zones, ...D.holes].filter((o) => o.zone.id !== id));
+  }
+
+  /** Tailles des autres formes : on retrouve facilement une cote déjà utilisée. */
+  private sizesExcept(id: number): number[] {
+    return this.store
+      .project()
+      .zones.filter((o) => o.id !== id && o.type !== 'poly')
+      .flatMap((o) => [o.w, o.h]);
+  }
+
   protected down(e: PointerEvent): void {
     const pt = this.pos(e);
     const z = this.store.selected();
@@ -153,7 +191,17 @@ export class StageCanvasComponent {
     if (this.near(pt, sunPosition(this.store.project().light, this.width, this.height), SUN_HIT)) this.drag = { k: 'light' };
     else if (z) {
       const hd = zoneHandles(z, this.view);
-      if (this.near(pt, hd.size, HANDLE_HIT)) this.drag = { k: 'size', id: z.id };
+      if (hd.center && this.near(pt, hd.center, HANDLE_HIT)) {
+        const others = this.store.project().zones.filter((o) => o.id !== z.id && o.type !== 'poly');
+        this.drag = {
+          k: 'center',
+          id: z.id,
+          points: [...zoneKeyPoints(z), ...panelKeyPoints(this.store.project().panel), ...others.map((o): Point => [o.x, o.y])],
+          targets: this.targetsExcept(z.id),
+        };
+      } else if (this.near(pt, hd.size, HANDLE_HIT)) this.drag = { k: 'size', id: z.id, ratio: z.w / z.h, sizes: this.sizesExcept(z.id) };
+      else if (hd.sideW && this.near(pt, hd.sideW, HANDLE_HIT)) this.drag = { k: 'sizeW', id: z.id, sizes: this.sizesExcept(z.id) };
+      else if (hd.sideH && this.near(pt, hd.sideH, HANDLE_HIT)) this.drag = { k: 'sizeH', id: z.id, sizes: this.sizesExcept(z.id) };
       else if (this.near(pt, hd.rot, HANDLE_HIT)) this.drag = { k: 'rot', id: z.id };
     }
     if (!this.drag) {
@@ -161,7 +209,17 @@ export class StageCanvasComponent {
       this.store.select(t?.id ?? null);
       if (t) {
         const [mx, my] = toMM(this.view, pt);
-        this.drag = { k: 'move', id: t.id, dx: mx - t.x, dy: my - t.y };
+        const box = [...this.store.prepared().zones, ...this.store.prepared().holes].find((o) => o.zone.id === t.id)?.box;
+        this.drag = {
+          k: 'move',
+          id: t.id,
+          dx: mx - t.x,
+          dy: my - t.y,
+          x0: t.x,
+          y0: t.y,
+          box0: box ?? [t.x, t.y, t.x, t.y],
+          targets: this.targetsExcept(t.id),
+        };
       }
     }
     if (this.drag) {
@@ -182,30 +240,63 @@ export class StageCanvasComponent {
       this.store.patch({ light: azimuthAt(pt[0], pt[1], this.width, this.height) });
       return;
     }
+    // Alt : pas d'aimantation
+    const tol = e.altKey ? 0 : SNAP_PX / this.view.scale;
+    let guides: SnapGuides = {};
     this.store.updateZone(d.id, (z) => {
-      if (d.k === 'move') return { ...z, x: round05(mx - d.dx), y: round05(my - d.dy) };
-      if (d.k === 'size') {
-        // redimensionnement symétrique dans le repère de la forme ; Maj = carré
-        const dx = mx - z.x;
-        const dy = my - z.y;
-        const r = -z.rot * RAD;
-        const lx = dx * Math.cos(r) - dy * Math.sin(r);
-        const ly = dx * Math.sin(r) + dy * Math.cos(r);
-        let w = Math.max(1, round05(2 * Math.abs(lx)));
-        let h = Math.max(1, round05(2 * Math.abs(ly)));
-        if (e.shiftKey) w = h = Math.max(w, h);
-        return { ...z, w, h };
+      if (d.k === 'move') {
+        const nx = round05(mx - d.dx);
+        const ny = round05(my - d.dy);
+        const ox = nx - d.x0;
+        const oy = ny - d.y0;
+        const box: BBox = [d.box0[0] + ox, d.box0[1] + oy, d.box0[2] + ox, d.box0[3] + oy];
+        const s = snapMove(nx, ny, box, d.targets, tol);
+        guides = s.guides;
+        return { ...z, x: s.value[0], y: s.value[1] };
       }
-      // rotation par pas de 5° ; Maj = libre
-      let a = Math.atan2(my - z.y, mx - z.x) / RAD + 90;
-      if (!e.shiftKey) a = Math.round(a / 5) * 5;
-      return { ...z, rot: ((a % 360) + 360) % 360 };
+      if (d.k === 'center') {
+        const s = snapPoint([round05(mx), round05(my)], d.points, d.targets, tol);
+        guides = s.guides;
+        const [cx, cy] = toZoneLocal(z, s.value);
+        const f = z.fill ?? defaultFill('eventail');
+        return { ...z, fill: { ...f, cx: clamp(cx, ...LIMITS.fillCenter), cy: clamp(cy, ...LIMITS.fillCenter) } };
+      }
+      if (d.k === 'rot') {
+        // rotation par pas de 5° ; Maj = libre
+        let a = Math.atan2(my - z.y, mx - z.x) / RAD + 90;
+        if (!e.shiftKey) a = Math.round(a / 5) * 5;
+        return { ...z, rot: ((a % 360) + 360) % 360 };
+      }
+      // redimensionnement symétrique, dans le repère de la forme
+      const dx = mx - z.x;
+      const dy = my - z.y;
+      const r = -z.rot * RAD;
+      const lx = Math.abs(dx * Math.cos(r) - dy * Math.sin(r));
+      const ly = Math.abs(dx * Math.sin(r) + dy * Math.cos(r));
+      const fit = (v: number, others: number[]) => Math.max(1, round05(snapLength(v, others, tol)));
+      if (d.k === 'sizeW') return { ...z, w: fit(2 * lx, [z.h, ...d.sizes]) };
+      if (d.k === 'sizeH') return { ...z, h: fit(2 * ly, [z.w, ...d.sizes]) };
+      if (e.shiftKey) {
+        // Maj : proportions libres ; chaque côté s'aimante à l'autre pour retrouver un cercle
+        const w = fit(2 * lx, d.sizes);
+        return { ...z, w, h: fit(2 * ly, [w, ...d.sizes]) };
+      }
+      // proportions gardées : un cercle reste un cercle
+      const w = fit(2 * Math.max(lx, ly * d.ratio), d.sizes);
+      return { ...z, w, h: Math.max(1, round05(w / d.ratio)) };
     });
+    this.setGuides(guides);
+  }
+
+  private setGuides(g: SnapGuides): void {
+    this.guides = g;
+    this.schedule();
   }
 
   protected up(): void {
     if (!this.drag) return;
     this.drag = null;
+    this.setGuides({});
     this.store.commit();
   }
 
@@ -213,7 +304,15 @@ export class StageCanvasComponent {
     const z = this.store.selected();
     let c = 'default';
     if (this.near(pt, sunPosition(this.store.project().light, this.width, this.height), SUN_HIT)) c = 'grab';
-    else if (z && (this.near(pt, zoneHandles(z, this.view).size, HANDLE_HIT) || this.near(pt, zoneHandles(z, this.view).rot, HANDLE_HIT))) c = 'pointer';
+    else if (z) {
+      const hd = zoneHandles(z, this.view);
+      if (hd.center && this.near(pt, hd.center, HANDLE_HIT)) c = 'crosshair';
+      else if (this.near(pt, hd.size, HANDLE_HIT)) c = 'nwse-resize';
+      else if (hd.sideW && this.near(pt, hd.sideW, HANDLE_HIT)) c = z.rot % 180 === 0 ? 'ew-resize' : 'pointer';
+      else if (hd.sideH && this.near(pt, hd.sideH, HANDLE_HIT)) c = z.rot % 180 === 0 ? 'ns-resize' : 'pointer';
+      else if (this.near(pt, hd.rot, HANDLE_HIT)) c = 'pointer';
+      else if (this.hitZone(pt)) c = 'move';
+    }
     else if (this.hitZone(pt)) c = 'move';
     if (c !== this.cursor()) this.cursor.set(c);
   }

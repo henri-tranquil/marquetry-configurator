@@ -13,7 +13,8 @@ import {
   RAD,
   rng,
 } from '../core/geometry/geometry';
-import { PALETTE, Point, Project, STRAW_SEGMENT, WOOD_HEX } from '../core/model/project';
+import { FillPiece, zoneFillPieces } from '../core/geometry/fill';
+import { PALETTE, Point, Project, STRAW_SEGMENT, WOOD_HEX, Zone } from '../core/model/project';
 
 /** Passage mm → pixels CSS du canvas. */
 export interface ViewTransform {
@@ -162,6 +163,80 @@ export function drawStraw(
   ctx.restore();
 }
 
+/** Au-delà, on saute la texture de fibres sur les brins pleins (trop coûteux). */
+const MAX_FIBER_PIECES = 2500;
+
+/** Brins pleins (éventail) : un aplat par brin, teinté selon son propre fil. */
+function drawSolidPieces(ctx: Ctx2D, pieces: readonly FillPiece[], hex: string, v: ViewTransform, sp: StrawParams): void {
+  const base = hexToRgb(hex);
+  const P = (q: Point) => toScreen(v, q);
+  for (const pc of pieces) {
+    let fill: string;
+    if (sp.mode === 'dir') {
+      const a = pc.angle * RAD;
+      fill = `rgb(${clamp255(Math.cos(a) * 127.5 + 127.5)},${clamp255(Math.sin(a) * 127.5 + 127.5)},${clamp255(pc.jitter * 255)})`;
+    } else {
+      const f = sp.mode === 'shaded' ? sheen(pc.angle, sp.light, sp.contrast) : 1;
+      const k = f * (1 + (pc.jitter - 0.5) * sp.irr * 0.34);
+      fill = `rgb(${clamp255(base[0] * k)},${clamp255(base[1] * k)},${clamp255(base[2] * k)})`;
+    }
+    tracePath(ctx, pc.poly.map(P));
+    ctx.fillStyle = fill;
+    ctx.fill();
+    // léger débord pour ne pas laisser de liseré clair entre deux brins
+    ctx.strokeStyle = fill;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+  if (sp.mode === 'dir') return;
+  const w = sp.swPx;
+  if (sp.fiber && w >= 3 && pieces.length <= MAX_FIBER_PIECES) {
+    for (const pc of pieces) {
+      const pp = pc.poly.map(P);
+      const b = bbox(pp);
+      const d = Math.hypot(b[2] - b[0], b[3] - b[1]) + 2;
+      ctx.save();
+      tracePath(ctx, pp);
+      ctx.clip();
+      ctx.translate((b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+      ctx.rotate(pc.angle * RAD);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = sp.fiber;
+      ctx.fillRect(-d / 2, -d / 2, d, d);
+      ctx.restore();
+    }
+  }
+  // joints et coupes transversales : détails coupés sous 2 px
+  if (w >= 2) {
+    ctx.beginPath();
+    for (const pc of pieces)
+      for (const [a, b] of pc.seams) {
+        ctx.moveTo(...P(a));
+        ctx.lineTo(...P(b));
+      }
+    ctx.strokeStyle = 'rgba(42,26,10,.34)';
+    ctx.lineWidth = Math.max(0.5, w * 0.08);
+    ctx.stroke();
+  }
+}
+
+/** Remplit une forme selon sa disposition (parallèle, éventail, chevron). */
+export function drawZoneFill(ctx: Ctx2D, z: Zone, poly: readonly Point[], p: Project, v: ViewTransform, sp: StrawParams): void {
+  const hex = PALETTE[z.color].hex;
+  const seed = zoneSeed(z.id);
+  const pp = poly.map((q) => toScreen(v, q));
+  const pieces = zoneFillPieces(z, [...poly], p.panel, p.sw, seed);
+  ctx.save();
+  tracePath(ctx, pp);
+  ctx.clip();
+  const solid = pieces.filter((pc) => pc.solid);
+  if (solid.length) drawSolidPieces(ctx, solid, hex, v, sp);
+  for (const pc of pieces)
+    if (!pc.solid) drawStraw(ctx, pc.poly.map((q) => toScreen(v, q)), pc.angle, hex, seed + pc.lane * 101, sp);
+  ctx.restore();
+}
+
 /** Médium nu : couleur bois + fibres légères. */
 export function drawWood(ctx: Ctx2D, x: number, y: number, w: number, h: number, fiber: CanvasPattern | null): void {
   ctx.fillStyle = WOOD_HEX;
@@ -229,7 +304,7 @@ export function drawStrawPanel(ctx: Ctx2D, p: Project, D: Prepared, o: StrawScen
 
   for (const z of D.zones) {
     const pp = z.poly.map((q) => toScreen(v, q));
-    drawStraw(ctx, pp, z.zone.angle, PALETTE[z.zone.color].hex, zoneSeed(z.zone.id), sp);
+    drawZoneFill(ctx, z.zone, z.poly, p, v, sp);
     if (o.mode !== 'dir') {
       tracePath(ctx, pp);
       ctx.strokeStyle = 'rgba(30,18,8,.5)';

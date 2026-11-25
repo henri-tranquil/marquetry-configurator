@@ -1,7 +1,7 @@
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { isNarrow } from '../../core/geometry/geometry';
-import { PALETTE } from '../../core/model/project';
+import { FILL_LABELS, PALETTE, Zone } from '../../core/model/project';
 import { ProjectStore } from '../../state/project.store';
 
 @Component({
@@ -21,7 +21,7 @@ import { ProjectStore } from '../../state/project.store';
               @if (r.narrow) {
                 <span class="tag">étroite</span>
               }
-              <span class="a">{{ r.zone.hole ? 'trou' : round(r.zone.angle) + '°' }}</span>
+              <span class="a">{{ r.zone.hole ? 'trou' : r.label }}</span>
             </button>
           </li>
         }
@@ -49,13 +49,18 @@ import { ProjectStore } from '../../state/project.store';
 export class LayersPanelComponent {
   protected readonly store = inject(ProjectStore);
   protected readonly palette = PALETTE;
-  protected readonly round = Math.round;
 
   /** Ordre inversé : le dernier posé (au-dessus) en haut de la liste. */
   protected readonly rows = computed(() => {
     const p = this.store.project();
-    return p.zones.map((zone, index) => ({ zone, index, narrow: isNarrow(zone, p.sw) })).reverse();
+    return p.zones.map((zone, index) => ({ zone, index, narrow: isNarrow(zone, p.sw), label: this.fillLabel(zone) })).reverse();
   });
+
+  private fillLabel(z: Zone): string {
+    const t = z.fill?.type ?? 'parallele';
+    if (t === 'parallele') return `${Math.round(z.angle)}°`;
+    return FILL_LABELS[t].toLowerCase();
+  }
 
   protected drop(e: CdkDragDrop<unknown, unknown, number>): void {
     const n = this.rows().length;

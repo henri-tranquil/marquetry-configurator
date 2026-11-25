@@ -8,7 +8,8 @@ import {
   profileBands,
   RAD,
 } from '../core/geometry/geometry';
-import { PALETTE, Point, Project } from '../core/model/project';
+import { fillCenter, hasFillCenter, zoneFillPieces } from '../core/geometry/fill';
+import { PALETTE, Point, Project, Zone } from '../core/model/project';
 import { Ctx2D, toScreen, tracePath, ViewTransform } from './straw-2d.renderer';
 
 function hatch(ctx: Ctx2D, pp: readonly Point[], angle: number, hex: string, stepPx: number, panelPx: [number, number, number, number]): void {
@@ -36,6 +37,54 @@ function hatch(ctx: Ctx2D, pp: readonly Point[], angle: number, hex: string, ste
   ctx.rotate(angle * RAD);
   ctx.fillStyle = hex;
   for (let y = -h; y < h; y += stepPx) ctx.fillRect(-h, y, d, 1.3);
+  ctx.restore();
+}
+
+/** Hachures dans le sens du fil, quelle que soit la disposition. */
+function hatchZone(
+  ctx: Ctx2D,
+  z: Zone,
+  poly: Point[],
+  p: Project,
+  v: ViewTransform,
+  stepPx: number,
+  panelPx: [number, number, number, number],
+): void {
+  const hex = PALETTE[z.color].hex;
+  const pieces = zoneFillPieces(z, poly, p.panel, p.sw, 0);
+  ctx.save();
+  tracePath(ctx, poly.map((q) => toScreen(v, q)));
+  ctx.clip();
+  // brins pleins : une ligne médiane tous les `every` brins pour garder l'écart des hachures
+  const every = Math.max(1, Math.round(stepPx / Math.max(0.1, p.sw * v.scale)));
+  ctx.beginPath();
+  for (const pc of pieces) {
+    if (!pc.solid) {
+      hatch(ctx, pc.poly.map((q) => toScreen(v, q)), pc.angle, hex, stepPx, panelPx);
+      continue;
+    }
+    if (((pc.lane % every) + every) % every !== 0) continue;
+    pc.axis.forEach((q, i) => (i ? ctx.lineTo(...toScreen(v, q)) : ctx.moveTo(...toScreen(v, q))));
+  }
+  ctx.strokeStyle = hex;
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Croix sur le point d'origine d'un éventail : repère de pose. */
+function drawCenterMark(ctx: Ctx2D, z: Zone, v: ViewTransform): void {
+  const [x, y] = toScreen(v, fillCenter(z));
+  ctx.save();
+  ctx.strokeStyle = '#1d1d1d';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, 2 * Math.PI);
+  ctx.moveTo(x - 9, y);
+  ctx.lineTo(x + 9, y);
+  ctx.moveTo(x, y - 9);
+  ctx.lineTo(x, y + 9);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -73,7 +122,7 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
     tracePath(ctx, pp);
     ctx.fillStyle = '#fff';
     ctx.fill();
-    hatch(ctx, pp, z.zone.angle, PALETTE[z.zone.color].hex, step, panelPx);
+    hatchZone(ctx, z.zone, z.poly, p, v, step, panelPx);
     tracePath(ctx, pp);
     ctx.strokeStyle = '#1d1d1d';
     ctx.lineWidth = 1.2;
@@ -113,6 +162,8 @@ export function drawPlanPanel(ctx: Ctx2D, p: Project, D: Prepared, o: PlanOption
   ctx.strokeStyle = 'rgba(0,0,0,.4)';
   ctx.lineWidth = 1;
   ctx.strokeRect(v.ox + 0.5, v.oy + 0.5, pw - 1, ph - 1);
+
+  for (const z of D.zones) if (hasFillCenter(z.zone)) drawCenterMark(ctx, z.zone, v);
 
   // numéros de pose = index + 1, posés sur un point réellement visible
   ctx.font = o.font;

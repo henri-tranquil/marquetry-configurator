@@ -37,21 +37,74 @@
   } @else {
     <div class="lab"><span>Couleur</span><output>{{ palette[z.color].label }}</output></div>
     <app-swatches [value]="z.color" (picked)="setColor(z, $event)" />
-    <app-slider-field
-      label="Sens du fil"
-      [value]="z.angle"
-      [display]="round(z.angle) + '°'"
-      [min]="0"
-      [max]="179"
-      [step]="1"
-      (live)="setAngle(z, $event)"
-      (committed)="commit()"
-    />
-    <div class="row angles">
-      @for (a of quickAngles; track a) {
-        <button type="button" [class.on]="round(z.angle) === a" (click)="set(z, { angle: a })">{{ a }}°</button>
+    <div class="lab"><span>Disposition des brins</span></div>
+    <app-segmented label="Disposition des brins" [options]="fills" [value]="fillType()" (picked)="setFill(z, $event)" />
+
+    @switch (fillType()) {
+      @case ('parallele') {
+        <app-slider-field
+          label="Sens du fil"
+          [value]="z.angle"
+          [display]="round(z.angle) + '°'"
+          [min]="0"
+          [max]="179"
+          [step]="1"
+          (live)="setAngle(z, $event)"
+          (committed)="commit()"
+        />
+        <div class="row angles">
+          @for (a of quickAngles; track a) {
+            <button type="button" [class.on]="round(z.angle) === a" (click)="set(z, { angle: a })">{{ a }}°</button>
+          }
+        </div>
       }
-    </div>
+      @case ('chevron') {
+        <app-slider-field
+          label="Axe du chevron"
+          [value]="z.angle"
+          [display]="round(z.angle) + '°'"
+          [min]="0"
+          [max]="179"
+          [step]="1"
+          (live)="setAngle(z, $event)"
+          (committed)="commit()"
+        />
+        <app-slider-field
+          label="Ouverture"
+          [value]="z.fill!.open"
+          [display]="'± ' + round(z.fill!.open) + '°'"
+          [min]="limits.chevronOpen[0]"
+          [max]="limits.chevronOpen[1]"
+          [step]="1"
+          (live)="patchFill(z, { open: $event })"
+          (committed)="commit()"
+        />
+        <div class="g2">
+          <app-number-field
+            label="Largeur des bandes"
+            [value]="z.fill!.band"
+            [min]="limits.chevronBand[0]"
+            [max]="limits.chevronBand[1]"
+            [step]="1"
+            (live)="setBand(z, $event)"
+            (committed)="commit()"
+          />
+        </div>
+      }
+      @default {
+        <div class="lab"><span>Origine des rayons</span></div>
+        <div class="row angles">
+          @for (o of origins; track o.label) {
+            <button type="button" [class.on]="z.fill!.cx === o.cx && z.fill!.cy === o.cy" (click)="setOrigin(z, o.cx, o.cy)">{{ o.label }}</button>
+          }
+        </div>
+        <div class="g2">
+          <app-number-field label="Origine X" [value]="round05(center()![0])" [step]="0.5" (live)="setCenter(z, $event, null)" (committed)="commit()" />
+          <app-number-field label="Origine Y" [value]="round05(center()![1])" [step]="0.5" (live)="setCenter(z, null, $event)" (committed)="commit()" />
+        </div>
+        <p class="note">La cible sur le panneau se déplace aussi à la souris. Elle peut sortir de la forme.</p>
+      }
+    }
   }
 
   <div class="g2">

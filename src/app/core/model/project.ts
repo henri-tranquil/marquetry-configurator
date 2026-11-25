@@ -19,6 +19,21 @@ export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const PROFILE_TYPES = ['droit', 'chanfrein', 'arrondi'] as const;
 export type ProfileType = (typeof PROFILE_TYPES)[number];
 
+/** Disposition des brins dans une forme. */
+export const FILL_TYPES = ['parallele', 'eventail', 'chevron'] as const;
+export type FillType = (typeof FILL_TYPES)[number];
+
+export interface StrawFill {
+  type: FillType;
+  /** Point d'origine de l'éventail, en coordonnées normalisées de la forme : suit déplacement, taille et rotation. */
+  cx: number;
+  cy: number;
+  /** Chevron : ouverture de part et d'autre de l'axe (°). */
+  open: number;
+  /** Chevron : largeur d'une bande (mm). */
+  band: number;
+}
+
 export type ViewMode = 'rendu' | 'plan' | '3d';
 export type BgMode = 'paille' | 'bois';
 
@@ -40,9 +55,12 @@ export interface Zone {
   rot: number;
   pts?: Point[];
   color: StrawColor;
+  /** Sens du fil absolu (parallèle) ou axe du chevron, 0–179. */
   angle: number;
   hole: boolean;
   edge?: EdgeProfile;
+  /** Disposition des brins ; absente = parallèle. */
+  fill?: StrawFill;
 }
 
 export interface Project {
@@ -58,6 +76,25 @@ export interface Project {
   gloss: number;
   view: ViewMode;
   zones: Zone[];
+}
+
+export const FILL_LABELS: Readonly<Record<FillType, string>> = {
+  parallele: 'Parallèle',
+  eventail: 'Éventail',
+  chevron: 'Chevron',
+};
+
+/** Disposition par défaut ; garde les réglages de `prev` quand ils ont un sens. */
+export function defaultFill(type: FillType, prev?: StrawFill): StrawFill {
+  const keepCenter = prev?.type === 'eventail' && type === 'eventail';
+  return {
+    type,
+    cx: keepCenter ? prev.cx : 0,
+    // l'éventail part par défaut du bas de la forme
+    cy: keepCenter ? prev.cy : type === 'eventail' ? 0.5 : 0,
+    open: prev?.open ?? 45,
+    band: prev?.band ?? 20,
+  };
 }
 
 export interface StrawInfo {
@@ -122,6 +159,9 @@ export const LIMITS = {
   gloss: [0, 1],
   profileSize: [0.5, 40],
   angle: [0, 179],
+  fillCenter: [-3, 3],
+  chevronOpen: [10, 80],
+  chevronBand: [2, 500],
   nameLength: 40,
   maxZones: 1500,
   maxPolyPoints: 300,

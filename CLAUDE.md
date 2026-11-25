@@ -71,6 +71,14 @@ Toutes les longueurs sont en **millimètres**, tous les angles en **degrés**. R
 type StrawColor = 'naturel' | 'ble' | 'miel' | 'brule' | 'ebene' | 'garance' | 'indigo' | 'sauge' | 'rose';
 type ShapeType = 'rect' | 'ellipse' | 'tri' | 'diamond' | 'hex' | 'poly';
 type ProfileType = 'droit' | 'chanfrein' | 'arrondi';
+type FillType = 'parallele' | 'eventail' | 'chevron';
+
+interface StrawFill {
+  type: FillType;
+  cx: number; cy: number;        // origine de l'éventail, coords normalisées de la forme, −3…3
+  open: number;                  // chevron : ouverture ± autour de l'axe, 10–80
+  band: number;                  // chevron : largeur d'une bande en mm, 2–500
+}
 
 interface EdgeProfile { type: ProfileType; size: number }           // size en mm
 
@@ -83,9 +91,10 @@ interface Zone {
   rot: number;                   // rotation de la forme
   pts?: [number, number][];      // 'poly' seulement : points normalisés dans [-0.5, 0.5]
   color: StrawColor;
-  angle: number;                 // sens du fil, ABSOLU (repère panneau), 0–179
+  angle: number;                 // sens du fil (parallèle) ou axe (chevron), ABSOLU, 0–179
   hole: boolean;                 // découpe traversante : couleur et angle ignorés
   edge?: EdgeProfile;            // trous seulement
+  fill?: StrawFill;              // disposition des brins ; absente = parallèle
 }
 
 interface Project {
@@ -110,6 +119,12 @@ Toute donnée qui entre (localStorage, import JSON) passe par une fonction `norm
 
 - **Formes** : polygone monde = points unitaires de la forme × (w, h), rotation `rot`, translation (x, y). L'ellipse est approchée par 72 points. Toutes les opérations (hit-test, aires, offsets) travaillent sur ces polygones.
 - **Sens du fil** : il est absolu et ne tourne pas avec la forme. Les angles sont pris modulo 180 car un brin n'a pas de sens.
+- **Disposition des brins** (`core/geometry/fill.ts`) : chaque forme est découpée en pièces, bornées à `bbox(forme) ∩ panneau`, et c'est la même découpe qui sert au rendu 2D, au plan, au SVG et à la texture de direction 3D.
+  - *Parallèle* : bandes droites dans le sens `angle`.
+  - *Éventail* : brins en coin rayonnant depuis l'origine, larges de `sw` au plus loin ; le fil suit le rayon ; coupes transversales tous les ~140 mm.
+  - *Chevron* (arête de poisson) : bandes parallèles à l'axe `angle`, calées sur le centre de la forme, fil à `axe ± open` en alternance.
+  - Pas de pose en arrondi : un brin de paille aplati reste droit, toute disposition est faite de brins rectilignes.
+  - L'origine est stockée en coordonnées de la forme : elle suit déplacement, taille et rotation. Le plan de pose la marque d'une croix.
 - **Calques** : peintre classique, la zone suivante recouvre la précédente. Les trous sont toujours appliqués après toutes les zones, quel que soit leur rang. Les numéros du plan de pose sont l'index + 1.
 - **Zone étroite** : moins de 3 brins de large (`min(w, h) < 3 × sw`, formes non `poly`), signalée dans les calques et l'inspecteur.
 - **Motifs** : chaque générateur renvoie des `Zone` ordinaires, modifiables ensuite. Le soleil oriente le fil de chaque rayon selon sa bissectrice. Ses secteurs débordent du panneau, c'est voulu : seule la partie visible compte.
@@ -156,7 +171,7 @@ Fond blanc, hachures dans le sens du fil et dans la couleur de la zone, contours
 
 Layout (reprendre celui du prototype) :
 - **En-tête** : titre, gabarits (sous-bock 100×100, façade de tiroir 450×150, porte de buffet 400×700, couvercle 220×140, plateau 1000×550, porte 830×2040), largeur et hauteur en mm, sélecteur de vue (Rendu paille / Plan de pose / Vue 3D), Annuler / Rétablir.
-- **Zone de travail** : panneau sur un tapis de découpe vert avec grille mm adaptative (pas de 5, 10, 50, 100 ou 500 mm selon l'échelle) et barre d'outils des formes et des trous. Un petit soleil déplaçable sur le tapis règle l'azimut. Poignées : redimensionnement symétrique (Maj = carré) et rotation par pas de 5° (Maj = libre).
+- **Zone de travail** : panneau sur un tapis de découpe vert avec grille mm adaptative (pas de 5, 10, 50, 100 ou 500 mm selon l'échelle) et barre d'outils des formes et des trous. Un petit soleil déplaçable sur le tapis règle l'azimut. Poignées : coin = redimensionnement symétrique proportionnel (Maj = libre), milieux du côté droit et du côté bas = largeur ou hauteur seule, rotation par pas de 5° (Maj = libre). Aimantation des déplacements, des tailles et de l'origine de l'éventail aux bords, centres et milieux du panneau et des autres formes (≈ 8 px à l'écran, Alt pour l'éviter) ; une taille s'aimante aussi à l'autre dimension (retrouver un cercle) et aux cotes des autres formes.
 - **Panneau latéral**, une section par composant : Sélection, Lumière et paille, Chants et épaisseur, Motifs, Calques, Matière, Exporter.
 - Sous 900 px tout s'empile : titre, canvas, puis contrôles.
 

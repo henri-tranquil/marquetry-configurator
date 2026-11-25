@@ -1,6 +1,8 @@
 import { generatePattern } from '../patterns/patterns';
 import {
   EdgeProfile,
+  FILL_TYPES,
+  StrawFill,
   LIMITS,
   PALETTE,
   Point,
@@ -39,6 +41,20 @@ export function normalizeEdge(v: unknown): EdgeProfile {
   return { type, size: num(e?.['size'], 5, a, b) };
 }
 
+export function normalizeFill(v: unknown): StrawFill | undefined {
+  const f = obj(v);
+  if (!f) return undefined;
+  const type = FILL_TYPES.find((t) => t === f['type']) ?? 'parallele';
+  const [c0, c1] = LIMITS.fillCenter;
+  return {
+    type,
+    cx: num(f['cx'], 0, c0, c1),
+    cy: num(f['cy'], type === 'eventail' ? 0.5 : 0, c0, c1),
+    open: num(f['open'], 45, ...LIMITS.chevronOpen),
+    band: num(f['band'], 20, ...LIMITS.chevronBand),
+  };
+}
+
 function normalizeZone(v: unknown, id: number): Zone | null {
   const z = obj(v);
   if (!z || !isShape(z['type'])) return null;
@@ -62,6 +78,8 @@ function normalizeZone(v: unknown, id: number): Zone | null {
     hole: !!z['hole'],
   };
   if (t.hole) t.edge = normalizeEdge(z['edge']);
+  const fill = normalizeFill(z['fill']);
+  if (fill) t.fill = fill;
   if (type === 'poly') {
     const raw = Array.isArray(z['pts']) ? (z['pts'] as unknown[]) : [];
     const pts: Point[] = raw
